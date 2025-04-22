@@ -7,6 +7,7 @@ import { promisify } from "util";
 import { storage } from "./storage";
 import { User as SelectUser, InsertUser, insertUserSchema } from "@shared/schema";
 import { z } from "zod";
+import * as bcrypt from "bcrypt";
 
 declare global {
   namespace Express {
@@ -17,25 +18,18 @@ declare global {
 const scryptAsync = promisify(scrypt);
 
 async function hashPassword(password: string) {
-  const salt = randomBytes(16).toString("hex");
-  const buf = (await scryptAsync(password, salt, 64)) as Buffer;
-  return `${buf.toString("hex")}.${salt}`;
+  // Using bcrypt for password hashing with cost factor 10
+  const salt = await bcrypt.genSalt(10);
+  return bcrypt.hash(password, salt);
 }
 
-// Generate a strongly hashed test password for seeding
-// This is a pre-computed hash for the password "password" using the same algorithm
-export const TEST_PASSWORD_HASH = "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8.a4e624d686e03ed2767c0abd85c14426";
+// The hashed password for 'password' is used for seed data
+export const TEST_PASSWORD_HASH = "$2b$10$9Dw/mX/mQJXqZPOcoIPBJ.ZjrH9HSKh0R42lqUQBLzOIKT7.wybGG";
 
 async function comparePasswords(supplied: string, stored: string) {
   try {
-    const [hashed, salt] = stored.split(".");
-    if (!hashed || !salt) {
-      console.error("Invalid stored password format");
-      return false;
-    }
-    const hashedBuf = Buffer.from(hashed, "hex");
-    const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
-    return timingSafeEqual(hashedBuf, suppliedBuf);
+    // Use bcrypt to compare passwords
+    return await bcrypt.compare(supplied, stored);
   } catch (error) {
     console.error("Error comparing passwords:", error);
     return false;
