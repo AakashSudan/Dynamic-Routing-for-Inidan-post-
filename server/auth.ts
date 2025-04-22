@@ -24,7 +24,7 @@ async function hashPassword(password: string) {
 }
 
 // The hashed password for 'password' is used for seed data
-export const TEST_PASSWORD_HASH = "$2b$10$9Dw/mX/mQJXqZPOcoIPBJ.ZjrH9HSKh0R42lqUQBLzOIKT7.wybGG";
+export const TEST_PASSWORD_HASH = "$2b$10$VI1r0Y6HUdc4Ofv9tNRQJePiAS1ccf.yhvo/7HMNQbPberb1FTQ6K";
 
 async function comparePasswords(supplied: string, stored: string) {
   try {
@@ -54,11 +54,27 @@ export function setupAuth(app: Express) {
 
   passport.use(
     new LocalStrategy(async (username, password, done) => {
-      const user = await storage.getUserByUsername(username);
-      if (!user || !(await comparePasswords(password, user.password))) {
-        return done(null, false);
-      } else {
-        return done(null, user);
+      try {
+        console.log(`Login attempt for username: ${username}`);
+        const user = await storage.getUserByUsername(username);
+        
+        if (!user) {
+          console.log(`User not found: ${username}`);
+          return done(null, false);
+        }
+        
+        console.log(`Found user: ${username}, comparing passwords...`);
+        const passwordValid = await comparePasswords(password, user.password);
+        console.log(`Password validation result: ${passwordValid}`);
+        
+        if (!passwordValid) {
+          return done(null, false);
+        } else {
+          return done(null, user);
+        }
+      } catch (error) {
+        console.error('Error in authentication:', error);
+        return done(error);
       }
     }),
   );
