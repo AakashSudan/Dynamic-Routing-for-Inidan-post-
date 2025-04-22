@@ -2,6 +2,7 @@ import { users, type User, type InsertUser, parcels, type Parcel, type InsertPar
 import session from "express-session";
 import createMemoryStore from "memorystore";
 import { nanoid } from "nanoid";
+import { TEST_PASSWORD_HASH } from "./auth";
 
 const MemoryStore = createMemoryStore(session);
 
@@ -421,14 +422,11 @@ export class MemStorage implements IStorage {
   }
   
   private seedUsers() {
-    // Hashed password for 'password'
-    const hashedPassword = "e0d123e5f316bef78bfdf5a008837577ddf7b11f84f0bc6150eaa5a6f4115b8b.8e23cc5f93f9d3d2ad42c7a8bcba2aad";
-    
     // Admin user
     this.users.set(1, {
       id: 1,
       username: "admin",
-      password: hashedPassword,
+      password: TEST_PASSWORD_HASH,
       email: "admin@mailrouting.com",
       fullName: "Admin User",
       role: "admin",
@@ -439,7 +437,7 @@ export class MemStorage implements IStorage {
     this.users.set(2, {
       id: 2,
       username: "staff",
-      password: hashedPassword,
+      password: TEST_PASSWORD_HASH,
       email: "staff@mailrouting.com",
       fullName: "Staff User",
       role: "staff",
@@ -450,7 +448,7 @@ export class MemStorage implements IStorage {
     this.users.set(3, {
       id: 3,
       username: "sender",
-      password: hashedPassword,
+      password: TEST_PASSWORD_HASH,
       email: "sender@mailrouting.com",
       fullName: "Sender User",
       role: "sender",
