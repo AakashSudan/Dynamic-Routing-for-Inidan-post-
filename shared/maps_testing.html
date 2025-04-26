@@ -1,0 +1,215 @@
+<!--<!DOCTYPE html>
+<html lang="en" style="width:100%; height:100%;">
+<head>
+  <meta charset="UTF-8" />
+  <title>Azure Maps Style Control Example</title>
+
+  Azure Maps CSS 
+  <link rel="stylesheet" href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css" type="text/css" />
+  <script src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"></script>
+  
+
+  Your map code (make sure this matches your actual filename) 
+  <script src="maps_testing.js"></script>
+
+  <style>
+    /* ensure the button (and controls) float on top of the map canvas */
+    button {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+    }  
+  </style>
+</head>
+
+<body onload="InitMap()" style='width:100%;height:100%;padding:0;margin:0;'> 
+    <div id='myMap' style='position:relative;width:100%;height:100%;'></div>
+  <button onclick="animateMap()">Animate Maps</button>
+  <div id="my-text-box"></div>
+</body>
+</html>
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Map style options - Azure Maps Web SDK Samples</title>
+
+    <meta charset="utf-8" />
+	<link rel="shortcut icon" href="/favicon.ico"/>
+    
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta name="description" content="This sample shows how the different style options of the map affect rendering." />
+    <meta name="keywords" content="Microsoft maps, map, gis, API, SDK, style, logo, lighting, map options" />
+    <meta name="author" content="Microsoft Azure Maps" /><meta name="version" content="1.0" />
+    <meta name="screenshot" content="screenshot.jpg" />
+    <link rel="stylesheet" href="styles.css">
+    <!-- Add references to the Azure Maps Map control JavaScript and CSS files. -->
+    <link href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css" rel="stylesheet" />
+    <script src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js"></script>
+
+    <script src="/lib/clipboard/dist/clipboard.min.js"></script>
+
+    <script src="maps_testing.js"></script>
+</head>
+<body onload="getMap()">
+    <fieldset class="sidePanel">
+        <legend>Map style options</legend>
+        This sample shows how the different style options of the map affect rendering.
+        <br /><br />
+
+        <div class="tab">
+            <button class="tablinks active" onclick="openTab(this, 'MapStyleOptions')">Style Options</button>
+            <button class="tablinks" onclick="openTab(this, 'LightingOptions')">Lighting Options</button>
+            <button class="tablinks" onclick="openTab(this, 'Code')">Code</button>
+        </div>
+
+        <div id="MapStyleOptions" class="tabcontent" style="display:block;">
+            <table>
+                <tr title="If true the map will automatically resize whenever the window's size changes. Otherwise map.resize() must be called.">
+                    <td>Auto resize:</td>
+                    <td><input id="autoResize" type="checkbox" onclick="updateStyles()" checked="checked" /></td>
+                </tr>
+                <tr title="Specifies if multiple copies of the world should be rendered when zoomed out. ">
+                    <td>Render world copies:</td>
+                    <td><input id="renderWorldCopies" type="checkbox" onclick="updateStyles()" checked="checked" /></td>
+                </tr>
+                <tr title="Specifies if the feedback link should be displayed on the map or not.">
+                    <td>Show feedback link:</td>
+                    <td><input id="showFeedbackLink" type="checkbox" onclick="updateStyles()" checked="checked" /></td>
+                </tr>
+                <tr title="Specifies if the Microsoft logo should be hidden or not. If set to true a Microsoft copyright string will be added to the map.">
+                    <td>Show logo:</td>
+                    <td><input id="showLogo" type="checkbox" onclick="updateStyles()" checked="checked" /></td>
+                </tr>
+                <tr title="Specifies if the map should display labels.">
+                    <td>Show labels:</td>
+                    <td><input id="showLabels" type="checkbox" onclick="updateStyles()" checked="checked" /></td>
+                </tr>
+                <tr title="Specifies if the map should display country borders.">
+                    <td>Show country borders:</td>
+                    <td><input id="showCountryBorders" type="checkbox" onclick="updateStyles()" checked="checked" /></td>
+                </tr>
+                <tr title="Specifies if the map should display admin district borders.">
+                    <td>Show admin district borders:</td>
+                    <td><input id="showAdminDistrictBorders" type="checkbox" onclick="updateStyles()" checked="checked" /></td>
+                </tr>
+                <tr title="Specifies if the map should display second admin district borders.">
+                    <td>Show second admin district borders:</td>
+                    <td><input id="showSecondAdminDistrictBorders" type="checkbox" onclick="updateStyles()" checked="checked" /></td>
+                </tr>
+                <tr title="Specifies if the map should display building footprints.">
+                    <td>Show building footprints:</td>
+                    <td><input id="showBuildingFootprints" type="checkbox" onclick="updateStyles()" checked="checked" /></td>
+                </tr>
+                <tr title="Specifies if the map should display road details.">
+                    <td>Show road details:</td>
+                    <td><input id="showRoadDetails" type="checkbox" onclick="updateStyles()" checked="checked" /></td>
+                </tr>
+                <tr title="Specifies if the map should render an outline around each tile and the tile ID. These tile boundaries are useful for debugging. The uncompressed file size of the first vector source is drawn in the top left corner of each tile, next to the tile ID. ">
+                    <td>Show tile boundaries:</td>
+                    <td><input id="showTileBoundaries" type="checkbox" onclick="updateStyles()" /></td>
+                </tr>
+                <tr title="The name of the style to use when rendering the map. Available styles can be found in the supported styles article.">
+                    <td>Style:</td>
+                    <td></td>
+                </tr>
+                <tr>
+                    <td colspan="2">
+                        <select id="style" onchange="updateStyles()">
+                            <option value="blank">blank</option>
+                            <option value="blank_accessible">blank_accessible</option>
+                            <option value="grayscale_dark">grayscale_dark</option>
+                            <option value="grayscale_light">grayscale_light</option>
+                            <option value="high_contrast_dark">high_contrast_dark</option>
+                            <option value="night">night</option>
+                            <option value="road" selected="selected">road</option>
+                            <option value="road_shaded_relief">road_shaded_relief</option>
+                            <option value="satellite">satellite</option>
+                            <option value="satellite_road_labels">satellite_road_labels</option>
+                        </select>
+                    </td>
+                </tr>
+            </table>
+
+            <p>
+                In addition to the options in this tool, the map also supports the following style options;
+                <ul>
+                    <li>preserveDrawingBuffer - allows the map canvas to be exported as an image.</li>
+                    <li>language - the language of the map.</li>
+                    <li>view - the geopolitical region view to align with.</li>
+                </ul>
+            </p>
+        </div>
+
+        <div id="LightingOptions" class="tabcontent">
+            The following are style options for lighting used for shading building models and extruded polygons.
+            <br /> <br />
+            <table>
+                <tr title="Specifies wether extruded geometries are lit relative to the map or viewport.">
+                    <td>Anchor:</td>
+                    <td>
+                        <select id="anchor" onchange="updateStyles()">
+                            <option value="map" selected="selected">map</option>
+                            <option value="viewport">viewport</option>
+                        </select>
+                    </td>
+                </tr>
+                <tr title="The color of the light.">
+                    <td>Color:</td>
+                    <td><input type="color" id="color" value="#FFFFFF" onchange="updateStyles()" /></td>
+                </tr>
+                <tr title="Intensity of lighting (on a scale from 0 to 1). Higher numbers will present as more extreme contrast.">
+                    <td>Intensity:</td>
+                    <td>
+                        <form oninput="int.value=intensity.value">
+                            <input type="range" id="intensity" value="0.5" min="0" max="1" step="0.1" oninput="updateStyles()" onchange="updateStyles()" />
+                            <output name="int" for="intensity">0.5</output>
+                        </form>
+                    </td>
+                </tr>
+                <tr title="Position of the light source relative to lit (extruded) geometries, in [r radial coordinate, a azimuthal angle, p polar angle].">
+                    <td colspan="2">Position:</td>
+                </tr>
+                <tr title="Indicates the distance from the center of the base of an object to its light.">
+                    <td>&nbsp;Radial coordinate:</td>
+                    <td>
+                        <form oninput="r.value=RadialCoordinate.value">
+                            <input type="range" id="RadialCoordinate" value="1.15" min="0" max="3.5" step="0.05" oninput="updateStyles()" onchange="updateStyles()" />
+                            <output name="r" for="RadialCoordinate">1.15</output>
+                        </form>
+                    </td>
+                </tr>
+                <tr title="Indicates the position of the light relative to 0° (0° when light.anchor is set to viewport corresponds to the top of the viewport, or 0° when light.anchor is set to map corresponds to due north, and degrees proceed clockwise).">
+                    <td>&nbsp;Azimuthal angle</td>
+                    <td>
+                        <form oninput="az.value=AzimuthalAngle.value">
+                            <input type="range" id="AzimuthalAngle" value="210" min="0" max="360" step="1" oninput="updateStyles()" onchange="updateStyles()" />
+                            <output name="az" for="AzimuthalAngle">210</output>
+                        </form>
+                    </td>
+                </tr>
+                <tr title="Indicates the height of the light (from 0°, directly above, to 180°, directly below).">
+                    <td>&nbsp;Polar angle:</td>
+                    <td>
+                        <form oninput="pa.value=PolarAngle.value">
+                            <input type="range" id="PolarAngle" value="30" min="0" max="180" step="1" oninput="updateStyles()" onchange="updateStyles()" />
+                            <output name="pa" for="PolarAngle">30</output>
+                        </form>
+                    </td>
+                </tr>
+            </table>
+        </div>
+
+        <div id="Code" class="tabcontent">
+            <textarea id="CodeOutput"></textarea><br /><br />
+            <input id="RemoveDefaults" type="checkbox" onclick="updateStyles()" checked="checked" /> Remove defaults
+            <button class="copyBtn" data-clipboard-target="#CodeOutput">Copy to clipboard</button>
+        </div>
+    </fieldset>
+
+    <div id="myMap"></div>
+    <div id="panel">
+        <div id="map-info"></div>
+    </div>
+</body>
+</html>
