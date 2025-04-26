@@ -138,3 +138,10 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+
+
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
