@@ -24,12 +24,12 @@ L.Icon.Default.mergeOptions({
   iconAnchor: [12, 41],
 });
 
-type Region = "North America" | "Europe" | "Asia Pacific" | "Global";
+type Region = "India" | "Europe" | "Asia Pacific" | "Global";
 
 export function RouteMap() {
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<L.Map | null>(null);
-  const [selectedRegion, setSelectedRegion] = useState<Region>("North America");
+  const [selectedRegion, setSelectedRegion] = useState<Region>("India");
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Fetch routes data from API
@@ -41,7 +41,7 @@ export function RouteMap() {
   // Initialize map when component mounts
   useEffect(() => {
     if (mapRef.current && !leafletMapRef.current) {
-      leafletMapRef.current = L.map(mapRef.current).setView([37.0902, -95.7129], 4);
+      leafletMapRef.current = L.map(mapRef.current).setView([25.0479, 77.6197], 5);
       
       // Add tile layer (map background)
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -65,11 +65,11 @@ export function RouteMap() {
     // Update map view based on selected region
     if (leafletMapRef.current) {
       switch (value) {
-        case "North America":
-          leafletMapRef.current.setView([37.0902, -95.7129], 4);
+        case "India":
+          leafletMapRef.current.setView([25.0479, 77.6197], 5);
           break;
         case "Europe":
-          leafletMapRef.current.setView([48.8566, 2.3522], 4);
+          leafletMapRef.current.setView([48.8566, 2.3522], 5);
           break;
         case "Asia Pacific":
           leafletMapRef.current.setView([34.0479, 100.6197], 3);
@@ -110,7 +110,7 @@ export function RouteMap() {
         </div>
       </CardHeader>
       
-      <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-wrap gap-2 items-center">
+      <div className="p-4 border-b border-slate-200 bg-slate-50 flex flex-wrap gap-2 items-center overflow-visible z-50">
         <Badge variant="outline" className="bg-green-100 text-green-800 hover:bg-green-100">
           <span className="h-2 w-2 rounded-full bg-green-500 mr-1"></span> Road
         </Badge>
@@ -129,8 +129,8 @@ export function RouteMap() {
             <SelectTrigger className="h-8 text-xs w-[140px]">
               <SelectValue placeholder="Select region" />
             </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="North America">North America</SelectItem>
+            <SelectContent position="popper" className="w-[140px]">
+              <SelectItem value="India">India</SelectItem>
               <SelectItem value="Europe">Europe</SelectItem>
               <SelectItem value="Asia Pacific">Asia Pacific</SelectItem>
               <SelectItem value="Global">Global</SelectItem>
@@ -139,12 +139,12 @@ export function RouteMap() {
         </div>
       </div>
       
-      <div className="relative h-[378px]">
+      <div className="relative h-[378px] z-0">
         {/* Map Container */}
-        <div id="route-map" ref={mapRef} className="h-full w-full"></div>
+        <div id="route-map" ref={mapRef} className="h-full w-full z-0"></div>
         
         {/* Route Legend */}
-        <div className="absolute bottom-4 left-4 bg-white bg-opacity-90 rounded p-2 shadow-lg text-xs w-48">
+        <div className="absolute bottom-4 left-4 bg-white bg-opacity-20 rounded p-2 shadow-lg text-xs w-48 z-2">
           <div className="font-medium mb-1 text-slate-800">Route Statistics</div>
           <Separator className="my-1" />
           <div className="space-y-1">
