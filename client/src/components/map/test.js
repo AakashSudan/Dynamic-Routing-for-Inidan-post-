@@ -1,4 +1,4 @@
-subscriptionKey = ""
+subscriptionKey = "9dPGOAf5QCFlAqiwc4fE69qI3g0HDFtBSHliBqryxl1HIjbyX0EKJQQJ99BDACYeBjF4DyP0AAAgAZMP3evf"
 
 
 function GetMap() {

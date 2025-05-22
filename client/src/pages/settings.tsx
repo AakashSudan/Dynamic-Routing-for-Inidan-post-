@@ -43,6 +43,7 @@ import {
   BellIcon,
   CheckIcon,
   CloudIcon,
+  DownloadIcon,
   EyeIcon,
   EyeOffIcon,
   GlobeIcon,
