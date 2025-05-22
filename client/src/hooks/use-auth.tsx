@@ -25,6 +25,7 @@ export const registerSchema = insertUserSchema.extend({
   password: z.string().min(8, "Password must be at least 8 characters"),
   email: z.string().email("Invalid email address"),
   role: z.enum(["sender", "staff", "admin"]).default("sender"),
+  phone: z.string().optional(),
 });
 
 export const AuthContext = createContext<AuthContextType | null>(null);

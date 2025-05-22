@@ -8,6 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { SearchIcon, TruckIcon, TrainIcon, PlaneIcon, QrCodeIcon, BellIcon, EyeIcon } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import NewParcel from "../layout/newparcel.tsx";
 
 export function ParcelTable() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -97,9 +98,7 @@ export function ParcelTable() {
               />
             </div>
           </div>
-          <Button size="sm">
-            New Parcel
-          </Button>
+          <NewParcel/>
         </div>
       </CardHeader>
       

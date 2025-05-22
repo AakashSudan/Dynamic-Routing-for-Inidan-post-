@@ -100,6 +100,7 @@ export const insertNotificationSchema = createInsertSchema(notifications).pick({
   type: true,
   message: true,
   channel: true,
+  read: true,
 });
 
 // Issues affecting routes
