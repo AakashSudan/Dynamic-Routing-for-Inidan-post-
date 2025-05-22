@@ -93,7 +93,7 @@ export default function NewParcel() {
     createParcelMutation.mutate({
       ...values,
       status: "preparing",
-      estimatedDelivery: estimatedDelivery.toISOString(),
+      estimatedDelivery: estimatedDelivery,
       currentLocation: values.origin,
     });
   }

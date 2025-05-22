@@ -8,7 +8,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
-import { DownloadIcon } from "lucide-react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Card,
@@ -506,8 +505,8 @@ export default function Settings() {
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
                             <div className="space-y-0.5">
-                              {/* <FormLabel className="text-base">Delay Notifications</FormLabel>
-                              <FormDescription>Receive alerts when parcels are delayed</FormDescription> */}
+                              <FormLabel className="text-base">Delay Notifications</FormLabel>
+                              <FormDescription>Receive alerts when parcels are delayed</FormDescription>
                             </div>
                             <Switch 
                               checked={preferences.delayNotifications}

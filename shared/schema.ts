@@ -42,26 +42,19 @@ export const parcels = pgTable("parcels", {
   delayDuration: text("delayDuration"),
 });
 
-export const insertParcelSchema = createInsertSchema(parcels)
-  .pick({
-    trackingNumber: true,
-    userId: true,
-    origin: true,
-    destination: true,
-    status: true,
-    transportMode: true,
-    estimatedDelivery: true,
-    weight: true,
-    dimensions: true,
-    currentLocation: true,
-    notes: true,
-  })
-  .extend({
-    estimatedDelivery: z.preprocess(
-      (arg) => (typeof arg === "string" ? new Date(arg) : arg),
-      z.date()
-    ).optional(),
-  });
+export const insertParcelSchema = createInsertSchema(parcels).pick({
+  trackingNumber: true,
+  userId: true,
+  origin: true,
+  destination: true,
+  status: true,
+  transportMode: true,
+  estimatedDelivery: true,
+  weight: true,
+  dimensions: true,
+  currentLocation: true,
+  notes: true,
+});
 
 // Routes for the parcels
 export const routes = pgTable("routes", {
@@ -185,11 +178,8 @@ export const insertStatsSchema = createInsertSchema(stats).omit({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
-export type InsertParcel = Omit<z.infer<typeof insertParcelSchema>, "estimatedDelivery"> & {
-  estimatedDelivery?: Date | string | null;
-};
+export type InsertParcel = z.infer<typeof insertParcelSchema>;
 export type Parcel = typeof parcels.$inferSelect;
-
 
 export type InsertRoute = z.infer<typeof insertRouteSchema>;
 export type Route = typeof routes.$inferSelect;

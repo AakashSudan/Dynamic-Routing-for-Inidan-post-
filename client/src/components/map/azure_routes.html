@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Map Route</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css    " type="text/css">
+    <script src="https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js    "></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body onload="GetMap()">
+    <div id="searchBox">
+        <!-- Existing route search -->
+        <input type="text" id="startInput" placeholder="Start Location">
+        <input type="text" id="endInput" placeholder="Destination">
+        <button onclick="searchRoute()">Get Route</button>
+        <div id="routeInfo">
+            <span id="etaDisplay">ETA: -</span><br/>
+            <span id="distanceDisplay">Distance: -</span>
+        </div>
+        <!-- New traffic search -->
+        <input type="text" id="trafficInput" placeholder="Traffic Location">
+        <button onclick="searchTraffic()">Get Traffic</button>
+        <div id="trafficDisplay">Traffic Info: -</div>
+    </div>
+
+    <!-- Map Container -->
+    <div id="myMap"></div>
+
+    <!-- Traffic Legend -->
+    <div class="legend" id="trafficLegend" style="opacity:0.5;">
+        <h4>Traffic Info</h4>
+        <div>Loading...</div>
+    </div>
+
+    <!-- Weather Legend -->
+    <div class="legend" id="weatherLegend" style="bottom: 150px; opacity:0.5;">
+        <h4>Weather Info</h4>
+        <div>Loading...</div>
+    </div>
+    
+    <!-- <div id="myMap"></div> -->
+</body>
+<script src="test.js"></script>
+
+</html>
