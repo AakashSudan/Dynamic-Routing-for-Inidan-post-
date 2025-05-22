@@ -88,6 +88,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Validate request body
       const validatedData = insertParcelSchema.parse({
         ...req.body,
+        estimatedDelivery: req.body.estimatedDelivery.toISOString(),
         trackingNumber,
         userId: req.user!.id, // Ensure the user ID is set to the logged-in user
       });
@@ -98,7 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ errors: error.errors });
       }
-      res.status(400).json({ message: "Invalid parcel data" });
+      res.status(400).json({ message: "Invalid parcel data", errors: error });
     }
   });
   

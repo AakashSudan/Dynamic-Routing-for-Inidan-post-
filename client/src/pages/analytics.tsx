@@ -320,8 +320,8 @@ export default function Analytics() {
           {/* Detailed Analytics and Daily Activity */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="lg:col-span-2">
-              <CardHeader>
-                <Tabs defaultValue="delays" className="w-full">
+              <Tabs defaultValue="delays" className="w-full">
+                <CardHeader>
                   <div className="flex justify-between items-center">
                     <CardTitle>Detailed Analytics</CardTitle>
                     <TabsList>
@@ -330,7 +330,7 @@ export default function Analytics() {
                       <TabsTrigger value="regions">Regional Data</TabsTrigger>
                     </TabsList>
                   </div>
-                </Tabs>
+                
               </CardHeader>
               <CardContent>
                 <TabsContent value="delays" className="mt-0 space-y-6">
@@ -462,7 +462,8 @@ export default function Analytics() {
                   </div>
                 </TabsContent>
               </CardContent>
-            </Card>
+            </Tabs>
+          </Card>
             
             <Card>
               <CardHeader>
