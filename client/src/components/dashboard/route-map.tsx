@@ -1,3 +1,4 @@
+const subkey = "FZI2j3E0Mp19Nwznj6pvIWKBdEAdyxWQ1Y9C66fdoB0hRSmiXLpaJQQJ99BDACYeBjF4DyP0AAAgAZMP4MjU";
 // import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 // import { Button } from "@/components/ui/button";
 // import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -191,12 +192,257 @@
 //     </Card>
 //   );
 // }
-
+import { useEffect, useRef, useState } from "react";
 
 export function RouteMap() {
+  const mapRef = useRef<HTMLDivElement | null>(null);
+  const startInputRef = useRef<HTMLInputElement | null>(null);
+  const endInputRef = useRef<HTMLInputElement | null>(null);
+  const [routeInfo, setRouteInfo] = useState<{ eta: string; distance: string } | null>(null);
+  const [rerouteSuggestion, setRerouteSuggestion] = useState<string | null>(null);
+  const geocodeCache = useRef<Record<string, [number, number]>>({});
+  const [map, setMap] = useState<any>(null);
+  const [datasource, setDatasource] = useState<any>(null);
+  const animationFrameId = useRef<number | null>(null);
+
+  const subscriptionKey = subkey;
+  // Load Azure Maps SDK dynamically
+  useEffect(() => {
+    const loadAzureMaps = () => {
+      const script = document.createElement("script");
+      script.src = "https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.js ";
+      script.async = true;
+      script.onload = initMap;
+      document.head.appendChild(script);
+
+      const cssLink = document.createElement("link");
+      cssLink.rel = "stylesheet";
+      cssLink.href = "https://atlas.microsoft.com/sdk/javascript/mapcontrol/3/atlas.min.css ";
+      document.head.appendChild(cssLink);
+    };
+
+    loadAzureMaps();
+
+    return () => {
+      if (map) map.dispose();
+      if (animationFrameId.current) cancelAnimationFrame(animationFrameId.current);
+    };
+  }, []);
+
+  function initMap() {
+    if (!window.atlas || !mapRef.current) return;
+
+    const atlasMap = new window.atlas.Map(mapRef.current, {
+      center: [78.9629, 20.5937],
+      zoom: 4,
+      authOptions: {
+        authType: "subscriptionKey",
+        subscriptionKey
+      }
+    });
+
+    atlasMap.events.add("ready", () => {
+    const ds = new atlas.source.DataSource();
+    atlasMap.sources.add(ds);
+
+    atlasMap.layers.add(new atlas.layer.TrafficFlowLayer(ds));
+
+    atlasMap.layers.add(
+      new atlas.layer.SymbolLayer(ds, null, {
+          iconOptions: {
+            image: ["get", "icon"],
+            allowOverlap: true
+          },
+          textOptions: {
+            textField: ["get", "title"],
+            offset: [0, 1.2]
+          },
+          filter: ["any", ["==", ["geometry-type"], "Point"], ["==", ["geometry-type"], "MultiPoint"]]
+        })
+      );
+
+    setMap(atlasMap);
+    setDatasource(ds);
+    // Add a line layer for route visualization
+    const routeLayer = new atlas.layer.LineLayer(ds, null, {
+      strokeColor: '#2272B9',
+      strokeWidth: 5,
+      lineJoin: 'round',
+      lineCap: 'round'
+    });
+    atlasMap.layers.add(routeLayer);
+      displayWeather(atlasMap, ds);
+    });
+  }
+
+  async function displayWeather(atlasMap: any, ds: any) {
+    if (!atlasMap || !ds) return;
+    const center = atlasMap.getCamera().center;
+    const [lon, lat] = center;
+    try {
+      const response = await fetch(`http://localhost:8000/weather/coords?lat=${lat}&lon=${lon}`);
+      const weatherData = await response.json();
+      const weatherFeature = new atlas.data.Feature(new atlas.data.Point(center), {
+        title: "Current Weather",
+        icon: getWeatherIcon(weatherData),
+        subtitle: `Weather: ${weatherData.weather}, Risk: ${weatherData.risk}`
+      });
+      ds.add(weatherFeature);
+    } catch (error) {
+      console.error("Error fetching weather data:", error);
+    }
+  }
+
+  async function searchRoute() {
+    const startLocation = startInputRef.current?.value.trim();
+    const endLocation = endInputRef.current?.value.trim();
+
+    if (!startLocation || !endLocation) {
+      alert("Please enter both start and end locations.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `http://localhost:8000/route/optimized?start=${encodeURIComponent(startLocation)}&end=${encodeURIComponent(endLocation)}`
+      );
+      const data = await response.json();
+
+      if (data.error) {
+        alert(data.error);
+        return;
+      }
+
+      if (!data.route || !Array.isArray(data.route) || data.route.length === 0) {
+        throw new Error("Route data is missing or invalid.");
+      }
+
+      if (!map || !datasource) {
+        alert("Map not ready yet. Please wait a moment.");
+        return;
+      }
+
+      datasource.clear();
+
+      const routeCoords = data.route.map((coord: number[]) => [coord[1], coord[0]]); // [lat, lon] -> [lon, lat]
+
+      let i = 0;
+      function animateRoute() {
+        if (i >= routeCoords.length) return;
+        const partial = routeCoords.slice(0, i + 1);
+        const line = new atlas.data.Feature(new atlas.data.LineString(partial));
+        datasource.clear();
+        datasource.add(line);
+        i++;
+        animationFrameId.current = requestAnimationFrame(animateRoute);
+      }
+
+      if (animationFrameId.current !== null) {
+        cancelAnimationFrame(animationFrameId.current);
+      }
+      animateRoute();
+
+      const startPoint = new atlas.data.Feature(new atlas.data.Point(routeCoords[0]), {
+        title: "Start",
+        icon: getWeatherIcon(data.weather_info),
+        subtitle: `Weather: ${formatWeatherRisk(data.weather_info.risk)}`
+      });
+
+      const endPoint = new atlas.data.Feature(new atlas.data.Point(routeCoords[routeCoords.length - 1]), {
+        title: "End",
+        icon: "pin-round-blue"
+      });
+
+      datasource.add([startPoint, endPoint]);
+
+      if (data.traffic_incidents && Array.isArray(data.traffic_incidents)) {
+        data.traffic_incidents.forEach((incident: any) => {
+          const incidentFeature = new atlas.data.Feature(
+            new atlas.data.Point([incident.location[1], incident.location[0]]),
+            {
+              title: `${incident.type}: ${incident.title}`,
+              icon: getIncidentIcon(incident.type)
+            }
+          );
+          datasource.add(incidentFeature);
+        });
+      }
+
+      if (data.reroute_path && Array.isArray(data.reroute_path)) {
+        const rerouteCoords = data.reroute_path.map((coord: number[]) => [coord[1], coord[0]]);
+        const rerouteLine = new atlas.data.Feature(new atlas.data.LineString(rerouteCoords), {
+          color: "red"
+        });
+        datasource.add(rerouteLine);
+      }
+
+      map.setCamera({
+        bounds: atlas.data.BoundingBox.fromPositions(routeCoords),
+        padding: 80
+      });
+
+      setRerouteSuggestion(data.reroute_suggestion ? "High congestion detected. Consider rerouting." : null);
+      setRouteInfo({
+        eta: data.eta || "Unknown",
+        distance: data.distance ? `${data.distance} km` : "Unknown"
+      });
+
+      displayWeather(map, datasource);
+    } catch (error: any) {
+      console.error(error);
+      alert(`Error: ${error.message}`);
+    }
+  }
+
+  function getIncidentIcon(type: string): string {
+    switch (type.toLowerCase()) {
+      case "accident":
+        return "accident";
+      case "construction":
+        return "construction";
+      default:
+        return "warning";
+    }
+  }
+
+  function getWeatherIcon(weatherInfo: any): string {
+    const { risk } = weatherInfo;
+    if (risk === "high") return "pin-red";
+    if (risk === "moderate") return "pin-yellow";
+    return "pin-green";
+  }
+
+  function formatWeatherRisk(risk: string): string {
+    return {
+      low: "🟢 Low risk",
+      moderate: "🟡 Moderate risk",
+      high: "🔴 High risk"
+    }[risk] || "Unknown";
+  }
+
   return (
-    <div className="h-full w-full flex items-center justify-center">
-      <p className="text-slate-500">Route Map Component</p>
+    <div className="h-full w-full">
+      <div className="p-2">
+        <input ref={startInputRef} type="text" placeholder="Start Location" className="m-1 p-1 border" />
+        <input ref={endInputRef} type="text" placeholder="Destination" className="m-1 p-1 border" />
+        <button onClick={searchRoute} className="m-1 p-1 bg-blue-500 text-white">Get Route</button>
+        {routeInfo && (
+          <div className="m-1 p-1 bg-gray-100 border">
+            <p>
+              <strong>ETA:</strong> {routeInfo.eta}
+            </p>
+            <p>
+              <strong>Distance:</strong> {routeInfo.distance}
+            </p>
+          </div>
+        )}
+        {rerouteSuggestion && (
+          <div className="m-1 p-1 bg-yellow-200 border border-yellow-400 text-yellow-800">
+            ⚠️ {rerouteSuggestion}
+          </div>
+        )}
+      </div>
+      <div ref={mapRef} className="h-[600px] w-full" id="myMap"></div>
     </div>
   );
 }
