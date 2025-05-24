@@ -320,8 +320,8 @@ export default function Analytics() {
           {/* Detailed Analytics and Daily Activity */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <Card className="lg:col-span-2">
+              <Tabs defaultValue="delays" className="w-full">
               <CardHeader>
-                <Tabs defaultValue="delays" className="w-full">
                   <div className="flex justify-between items-center">
                     <CardTitle>Detailed Analytics</CardTitle>
                     <TabsList>
@@ -330,7 +330,6 @@ export default function Analytics() {
                       <TabsTrigger value="regions">Regional Data</TabsTrigger>
                     </TabsList>
                   </div>
-                </Tabs>
               </CardHeader>
               <CardContent>
                 <TabsContent value="delays" className="mt-0 space-y-6">
@@ -347,7 +346,7 @@ export default function Analytics() {
                               outerRadius={80}
                               dataKey="value"
                               label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                            >
+                              >
                               {delayCausesData.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={entry.color} />
                               ))}
@@ -369,7 +368,7 @@ export default function Analytics() {
                               { mode: "Rail", impact: 8 },
                               { mode: "Air", impact: 23 },
                             ]}
-                          >
+                            >
                             <CartesianGrid strokeDasharray="3 3" />
                             <XAxis dataKey="mode" />
                             <YAxis label={{ value: 'Delay %', angle: -90, position: 'insideLeft' }} />
@@ -416,7 +415,7 @@ export default function Analytics() {
                           { week: "W7", parcels: 650, efficiency: 93 },
                           { week: "W8", parcels: 700, efficiency: 94 },
                         ]}
-                      >
+                        >
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="week" />
                         <YAxis yAxisId="left" orientation="left" stroke="hsl(var(--primary))" />
@@ -430,7 +429,7 @@ export default function Analytics() {
                           stroke="hsl(var(--primary))"
                           activeDot={{ r: 8 }}
                           name="Parcels Delivered"
-                        />
+                          />
                         <Line yAxisId="right" type="monotone" dataKey="efficiency" stroke="#8884d8" name="Efficiency %" />
                       </LineChart>
                     </ResponsiveContainer>
@@ -449,7 +448,7 @@ export default function Analytics() {
                           { region: "West", volume: 1400, growth: 10 },
                         ]}
                         margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                      >
+                        >
                         <CartesianGrid strokeDasharray="3 3" />
                         <XAxis dataKey="region" />
                         <YAxis />
@@ -462,6 +461,7 @@ export default function Analytics() {
                   </div>
                 </TabsContent>
               </CardContent>
+                  </Tabs>
             </Card>
             
             <Card>

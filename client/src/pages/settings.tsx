@@ -364,7 +364,7 @@ export default function Settings() {
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <FormLabel>Language</FormLabel>
+                      <label>Language</label>
                       <Select defaultValue="en">
                         <SelectTrigger>
                           <SelectValue placeholder="Select language" />
@@ -399,7 +399,7 @@ export default function Settings() {
                     </div>
                     
                     <div className="space-y-2">
-                      <FormLabel>Time Zone</FormLabel>
+                      <label>Time Zone</label>
                       <Select defaultValue="america_new_york">
                         <SelectTrigger>
                           <SelectValue placeholder="Select time zone" />
@@ -442,7 +442,7 @@ export default function Settings() {
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <FormLabel>Date Format</FormLabel>
+                      <label>Date Format</label>
                       <Select defaultValue="mdy">
                         <SelectTrigger>
                           <SelectValue placeholder="Select date format" />
@@ -456,7 +456,7 @@ export default function Settings() {
                     </div>
                     
                     <div className="space-y-2">
-                      <FormLabel>Distance Unit</FormLabel>
+                      <label>Distance Unit</label>
                       <Select defaultValue="miles">
                         <SelectTrigger>
                           <SelectValue placeholder="Select unit" />
@@ -506,8 +506,8 @@ export default function Settings() {
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
                             <div className="space-y-0.5">
-                              <FormLabel className="text-base">Delay Notifications</FormLabel>
-                              <FormDescription>Receive alerts when parcels are delayed</FormDescription>
+                              <label className="text-base">Delay Notifications</label>
+                              <p>Receive alerts when parcels are delayed</p>
                             </div>
                             <Switch 
                               checked={preferences.delayNotifications}
@@ -519,8 +519,8 @@ export default function Settings() {
                           
                           <div className="flex items-center justify-between">
                             <div className="space-y-0.5">
-                              <FormLabel className="text-base">Weather Alerts</FormLabel>
-                              <FormDescription>Get notified about weather impacts on routes</FormDescription>
+                              <label className="text-base">Weather Alerts</label>
+                              <p>Get notified about weather impacts on routes</p>
                             </div>
                             <Switch 
                               checked={preferences.weatherAlerts}
@@ -532,8 +532,8 @@ export default function Settings() {
                           
                           <div className="flex items-center justify-between">
                             <div className="space-y-0.5">
-                              <FormLabel className="text-base">Status Changes</FormLabel>
-                              <FormDescription>Updates when parcel status changes</FormDescription>
+                              <label className="text-base">Status Changes</label>
+                              <p>Updates when parcel status changes</p>
                             </div>
                             <Switch 
                               checked={preferences.statusChanges}
@@ -545,8 +545,8 @@ export default function Settings() {
                           
                           <div className="flex items-center justify-between">
                             <div className="space-y-0.5">
-                              <FormLabel className="text-base">Delivery Confirmations</FormLabel>
-                              <FormDescription>Notifications when parcels are delivered</FormDescription>
+                              <label className="text-base">Delivery Confirmations</label>
+                              <p>Notifications when parcels are delivered</p>
                             </div>
                             <Switch 
                               checked={preferences.deliveryConfirmations}
@@ -561,8 +561,8 @@ export default function Settings() {
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
                             <div className="space-y-0.5">
-                              <FormLabel className="text-base">Email</FormLabel>
-                              <FormDescription>Send notifications to {user?.email}</FormDescription>
+                              <label className="text-base">Email</label>
+                              <p>Send notifications to {user?.email}</p>
                             </div>
                             <Switch 
                               checked={preferences.emailEnabled}
@@ -574,8 +574,8 @@ export default function Settings() {
                           
                           <div className="flex items-center justify-between">
                             <div className="space-y-0.5">
-                              <FormLabel className="text-base">SMS</FormLabel>
-                              <FormDescription>Send text messages to {user?.phone || "No phone number"}</FormDescription>
+                              <label className="text-base">SMS</label>
+                              <p>Send text messages to {user?.phone || "No phone number"}</p>
                             </div>
                             <Switch 
                               checked={preferences.smsEnabled}
@@ -588,8 +588,8 @@ export default function Settings() {
                           
                           <div className="flex items-center justify-between">
                             <div className="space-y-0.5">
-                              <FormLabel className="text-base">Push Notifications</FormLabel>
-                              <FormDescription>Receive push notifications in browser</FormDescription>
+                              <label className="text-base">Push Notifications</label>
+                              <p>Receive push notifications in browser</p>
                             </div>
                             <Switch 
                               checked={preferences.pushEnabled}
@@ -600,7 +600,7 @@ export default function Settings() {
                       </div>
                       
                       <div className="space-y-2">
-                        <FormLabel>Notification Frequency</FormLabel>
+                        <label>Notification Frequency</label>
                         <Select 
                           value={preferences.frequency} 
                           onValueChange={(value) => {
@@ -616,13 +616,13 @@ export default function Settings() {
                             <SelectItem value="daily">Daily Summary</SelectItem>
                           </SelectContent>
                         </Select>
-                        <FormDescription>
+                        <p className="text-sm text-slate-500 mt-1">
                           {preferences.frequency === "realtime" 
                             ? "You will receive notifications immediately as events occur."
                             : preferences.frequency === "hourly"
                             ? "You will receive a digest of notifications every hour."
                             : "You will receive a summary of all notifications once a day."}
-                        </FormDescription>
+                        </p >
                       </div>
                     </>
                   ) : (
@@ -718,8 +718,8 @@ export default function Settings() {
                     <div className="space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="space-y-0.5">
-                          <FormLabel className="text-base">Show User Avatar</FormLabel>
-                          <FormDescription>Display user avatar in the header</FormDescription>
+                          <label className="text-base">Show User Avatar</label>
+                          <p>Display user avatar in the header</p>
                         </div>
                         <Switch 
                           checked={showAvatar}
@@ -731,8 +731,8 @@ export default function Settings() {
                       
                       <div className="flex items-center justify-between">
                         <div className="space-y-0.5">
-                          <FormLabel className="text-base">Enable Animations</FormLabel>
-                          <FormDescription>Use animations throughout the interface</FormDescription>
+                          <label className="text-base">Enable Animations</label>
+                          <p>Use animations throughout the interface</p>
                         </div>
                         <Switch 
                           checked={enableAnimation}
@@ -744,8 +744,8 @@ export default function Settings() {
                       
                       <div className="flex items-center justify-between">
                         <div className="space-y-0.5">
-                          <FormLabel className="text-base">High Contrast Mode</FormLabel>
-                          <FormDescription>Increase contrast for better visibility</FormDescription>
+                          <label className="text-base">High Contrast Mode</label>
+                          <p>Increase contrast for better visibility</p>
                         </div>
                         <Switch 
                           checked={highContrastMode}
@@ -757,8 +757,8 @@ export default function Settings() {
                       
                       <div className="flex items-center justify-between">
                         <div className="space-y-0.5">
-                          <FormLabel className="text-base">Large Text</FormLabel>
-                          <FormDescription>Increase text size for better readability</FormDescription>
+                          <label className="text-base">Large Text</label>
+                          <p>Increase text size for better readability</p>
                         </div>
                         <Switch 
                           checked={largeText}
@@ -786,7 +786,7 @@ export default function Settings() {
                 <CardContent className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <FormLabel>Default Map View</FormLabel>
+                      <label>Default Map View</label>
                       <Select defaultValue="hybrid">
                         <SelectTrigger>
                           <SelectValue placeholder="Select map type" />
@@ -801,7 +801,7 @@ export default function Settings() {
                     </div>
                     
                     <div className="space-y-2">
-                      <FormLabel>Traffic Display</FormLabel>
+                      <label>Traffic Display</label>
                       <Select defaultValue="automatic">
                         <SelectTrigger>
                           <SelectValue placeholder="Select traffic display" />
@@ -817,7 +817,7 @@ export default function Settings() {
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                      <FormLabel>Route Color Scheme</FormLabel>
+                      <label>Route Color Scheme</label>
                       <Select defaultValue="mode">
                         <SelectTrigger>
                           <SelectValue placeholder="Select color scheme" />
@@ -831,7 +831,7 @@ export default function Settings() {
                     </div>
                     
                     <div className="space-y-2">
-                      <FormLabel>Weather Overlay</FormLabel>
+                      <label>Weather Overlay</label>
                       <Select defaultValue="automatic">
                         <SelectTrigger>
                           <SelectValue placeholder="Select weather display" />
@@ -969,10 +969,10 @@ export default function Settings() {
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <FormLabel className="text-base">Two-Factor Authentication</FormLabel>
-                        <FormDescription>
+                        <label className="text-base">Two-Factor Authentication</label>
+                        <p>
                           Add an extra layer of security to your account
-                        </FormDescription>
+                        </p>
                       </div>
                       <Button variant="outline">
                         Setup 2FA
@@ -983,10 +983,10 @@ export default function Settings() {
                     
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <FormLabel className="text-base">Active Sessions</FormLabel>
-                        <FormDescription>
+                        <label className="text-base">Active Sessions</label>
+                        <p>
                           Manage devices where you're currently logged in
-                        </FormDescription>
+                        </p>
                       </div>
                       <Button variant="outline">
                         Manage Sessions
@@ -997,10 +997,10 @@ export default function Settings() {
                     
                     <div className="flex items-center justify-between">
                       <div className="space-y-0.5">
-                        <FormLabel className="text-base">Login History</FormLabel>
-                        <FormDescription>
+                        <label className="text-base">Login History</label>
+                        <p>
                           View recent login activity on your account
-                        </FormDescription>
+                        </p>
                       </div>
                       <Button variant="outline">
                         View History

@@ -137,7 +137,7 @@ export function Sidebar({ className }: SidebarProps) {
             
             <Button 
               variant="outline" 
-              className="w-full justify-start text-sidebar-foreground border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+              className="w-full justify-start bg-primary text-sidebar-foreground border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               onClick={handleLogout}
               disabled={logoutMutation.isPending}
             >

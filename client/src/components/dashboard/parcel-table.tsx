@@ -5,14 +5,19 @@ import { useQuery } from "@tanstack/react-query";
 import { Parcel } from "@shared/schema";
 import { useState } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { SearchIcon, TruckIcon, TrainIcon, PlaneIcon, QrCodeIcon, BellIcon, EyeIcon } from "lucide-react";
-import { format } from "date-fns";
+import { SearchIcon, TruckIcon, TrainIcon, PlaneIcon, QrCodeIcon, BellIcon, EyeIcon, QrCode} from "lucide-react";
+import { format, set } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import NewParcel from "../layout/newparcel.tsx";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { QRCodeSVG } from "qrcode.react";
 
 export function ParcelTable() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedParcel, setSelectedParcel] = useState<Parcel | null>(null);
   const { toast } = useToast();
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [qrCodeValue, setQrCodeValue] = useState("");
   
   const { data: parcels, isLoading } = useQuery<Parcel[]>({
     queryKey: ["/api/parcels"],
@@ -68,10 +73,8 @@ export function ParcelTable() {
   };
   
   const handleGenerateQR = (trackingNumber: string) => {
-    toast({
-      title: "QR Code Generated",
-      description: `QR code for tracking number ${trackingNumber} has been generated.`,
-    });
+    setQrCodeValue(`https://mailroutepro.com/track/${trackingNumber}`);
+    setShowQRCode(true);
   };
   
   const handleSendAlert = (trackingNumber: string) => {
@@ -101,7 +104,61 @@ export function ParcelTable() {
           <NewParcel/>
         </div>
       </CardHeader>
-      
+      <Dialog open={!!selectedParcel} onOpenChange={() => setSelectedParcel(null)}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Parcel Details</DialogTitle>
+            <DialogDescription>
+              {selectedParcel && (
+                <>
+                  Tracking Number: <span className="font-mono">{selectedParcel.trackingNumber}</span>
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedParcel && (
+            <div className="space-y-2 text-sm">
+              <div><strong>Origin:</strong> {selectedParcel.origin}</div>
+              <div><strong>Destination:</strong> {selectedParcel.destination}</div>
+              <div><strong>Status:</strong> {selectedParcel.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
+              <div><strong>Transport Mode:</strong> {selectedParcel.transportMode}</div>
+              <div><strong>Weight:</strong> {selectedParcel.weight}</div>
+              {selectedParcel.dimensions && <div><strong>Dimensions:</strong> {selectedParcel.dimensions}</div>}
+              <div><strong>Current Location:</strong> {selectedParcel.currentLocation || "N/A"}</div>
+              {selectedParcel.estimatedDelivery && (
+                <div>
+                  <strong>Estimated Delivery:</strong> {format(new Date(selectedParcel.estimatedDelivery), "MMM d, yyyy - h:mm a")}
+                </div>
+                )}
+              {selectedParcel.notes && <div><strong>Notes:</strong> {selectedParcel.notes}</div>}
+              {selectedParcel.delayReason && <div><strong>Delay Reason:</strong> {selectedParcel.delayReason}</div>}
+              {selectedParcel.delayDuration && <div><strong>Delay Duration:</strong> {selectedParcel.delayDuration}</div>}
+            </div>
+          )}
+
+        </DialogContent>
+          </Dialog>
+          <Dialog open={showQRCode} onOpenChange={setShowQRCode}>
+                <DialogContent className="sm:max-w-[400px]">
+                  <DialogHeader>
+                    <DialogTitle>Parcel Tracking QR Code</DialogTitle>
+                    <DialogDescription>
+                      Scan this QR code to track your parcel
+                    </DialogDescription>
+                  </DialogHeader>
+              
+              <div className="flex justify-center p-4">
+                <div className="bg-white p-4 rounded-md">
+                  <QRCodeSVG value={qrCodeValue} size={200} />
+                </div>
+              </div>
+              
+              <DialogFooter>
+                <Button onClick={() => setShowQRCode(false)} className="w-full">Close</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          
       <div className="overflow-x-auto">
         <Table>
           <TableHeader className="bg-slate-50">
@@ -175,15 +232,23 @@ export function ParcelTable() {
                   </TableCell>
                   <TableCell className="whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:text-primary/80" title="View Details">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-primary hover:text-primary/80"
+                        title="View Details"
+                        onClick={() => setSelectedParcel(parcel)}
+                      >
                         <EyeIcon className="h-4 w-4" />
                       </Button>
-                      <Button 
+                      <Button
                         variant="ghost" 
                         size="icon" 
                         className="h-8 w-8 text-slate-600 hover:text-slate-900" 
                         title="Generate QR"
-                        onClick={() => handleGenerateQR(parcel.trackingNumber)}
+                        onClick={() => {
+                          handleGenerateQR(parcel.trackingNumber); 
+                          }}
                       >
                         <QrCodeIcon className="h-4 w-4" />
                       </Button>
