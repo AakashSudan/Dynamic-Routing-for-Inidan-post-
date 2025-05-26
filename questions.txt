@@ -1,0 +1,4 @@
+    - Provide a complete TypeScript example  integrating OpenWeatherMap + Azure Maps?
+    - Help you build a simple ML model  for traffic/weather prediction?
+    - Suggest how to cache weather data  to reduce API calls?
+     
