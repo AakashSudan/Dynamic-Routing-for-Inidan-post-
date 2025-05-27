@@ -91,21 +91,28 @@ export function RouteMap() {
   };
 
   const geocode = async (place: string): Promise<[number, number]> => {
-    if (geocodeCache.current[place]) {
-      return geocodeCache.current[place];
-    }
-    const response = await axios.get("https://nominatim.openstreetmap.org/search", {
-      params: {
-        q: place,
-        format: "json",
-        limit: 1,
-      },
-    });
-    const { lat, lon } = response.data[0];
-    const coords: [number, number] = [parseFloat(lat), parseFloat(lon)];
-    geocodeCache.current[place] = coords;
-    return coords;
-  };
+  if (geocodeCache.current[place]) {
+    return geocodeCache.current[place]; // return from cache
+  }
+
+  const response = await axios.get("https://nominatim.openstreetmap.org/search", {
+    params: {
+      q: place,
+      format: "json",
+      limit: 1,
+    },
+  });
+
+  const { lat, lon } = response.data[0];
+  const coords: [number, number] = [parseFloat(lat), parseFloat(lon)];
+
+  // Store in cache
+  geocodeCache.current[place] = coords;
+
+  // Persist updated cache to localStorage
+  localStorage.setItem("geocodeCache", JSON.stringify(geocodeCache.current));
+  return coords;
+};
 
   const showRoute = async () => {
     if (!leafletMapRef.current) return;
@@ -238,9 +245,8 @@ export function RouteMap() {
       </div>
     </Card>
   );
+
 }
-
-
 // import { useEffect, useRef, useState } from "react";
 
 // export function RouteMap() {

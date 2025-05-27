@@ -1,4 +1,3 @@
-
 import os
 import requests
 from dotenv import load_dotenv
@@ -9,7 +8,7 @@ load_dotenv()
 AZURE_MAPS_KEY = os.getenv("AZURE_MAPS_KEY")
 
 def build_route_url(start_lat, start_lon, end_lat, end_lon):
-    base_url = "https://atlas.microsoft.com/route/directions/json    "
+    base_url = "https://atlas.microsoft.com/route/directions/json"
     params = {
         "api-version": "1.0",
         "query": f"{start_lat},{start_lon}:{end_lat},{end_lon}",
