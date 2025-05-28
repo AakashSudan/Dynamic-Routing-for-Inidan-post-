@@ -1,0 +1,105 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  email     String   @unique
+  fullName  String
+  role      String
+  phone     String?
+  parcels   Parcel[]
+  notifications Notification[]
+  notificationPreferences NotificationPreference[]
+}
+
+model Parcel {
+  id              Int      @id @default(autoincrement())
+  trackingNumber  String   @unique
+  userId          Int
+  createdAt       DateTime @default(now())
+  estimatedDelivery DateTime?
+  actualDelivery  DateTime?
+  status          String
+  transportMode   String
+  weight          String
+  dimensions      String?
+  currentLocation String?
+  notes           String?
+  delayReason     String?
+  delayDuration   String?
+  origin          String
+  destination     String
+  routes          Route[]
+  user            User     @relation(fields: [userId], references: [id])
+}
+
+model Route {
+  id         Int      @id @default(autoincrement())
+  parcelId   Int
+  createdAt  DateTime @default(now())
+  active     Boolean
+  // Add more route fields as needed
+  parcel     Parcel   @relation(fields: [parcelId], references: [id])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  createdAt DateTime @default(now())
+  read      Boolean  @default(false)
+  sent      Boolean  @default(false)
+  // Add more notification fields as needed
+  user      User     @relation(fields: [userId], references: [id])
+}
+
+model Issue {
+  id         Int      @id @default(autoincrement())
+  createdAt  DateTime @default(now())
+  resolvedAt DateTime?
+  status     String
+  // Add more issue fields as needed
+}
+
+model NotificationPreference {
+  id                        Int      @id @default(autoincrement())
+  userId                    Int
+  delayNotifications        Boolean  @default(false)
+  weatherAlerts             Boolean  @default(false)
+  statusChanges             Boolean  @default(false)
+  deliveryConfirmations     Boolean  @default(false)
+  emailEnabled              Boolean  @default(true)
+  smsEnabled                Boolean  @default(false)
+  pushEnabled               Boolean  @default(false)
+  frequency                 String   @default("realtime")
+  user                      User     @relation(fields: [userId], references: [id])
+}
+
+model Stats {
+  id                        Int      @id @default(autoincrement())
+  activeParcels             Int
+  activeRoutes              Int
+  delayedParcels            Int
+  onTimeRate                String
+  roadTransitPercentage     String
+  railTransitPercentage     String
+  airTransitPercentage      String
+  weatherImpactPercentage   String
+  trafficCongestionPercentage String
+  mechanicalIssuesPercentage String
+  updatedAt                 DateTime @default(now())
+}

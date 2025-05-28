@@ -2,6 +2,19 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+import { PrismaClient } from '../generated/prisma';
+const prisma = new PrismaClient();
+
+async function checkDatabaseConnection() {
+  try {
+    await prisma.$connect();
+    console.log('✅ Database is online');
+  } catch (error) {
+    console.error('❌ Database connection failed:', error);
+    process.exit(1); // Optionally exit if DB is not available
+  }
+}
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -25,9 +38,9 @@ app.use((req, res, next) => {
         logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
       }
 
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
+      // if (logLine.length > 80) {
+      //   logLine = logLine.slice(0, 79) + "…";
+      // }
 
       log(logLine);
     }
@@ -60,6 +73,7 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = 7000;
+  await checkDatabaseConnection();
   server.listen({
     port,
     host: "0.0.0.0",

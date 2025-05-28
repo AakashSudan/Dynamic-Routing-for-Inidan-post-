@@ -1,207 +1,132 @@
-import { pgTable, text, serial, integer, boolean, timestamp, json } from "drizzle-orm/pg-core";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// User model with role-based access
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  email: text("email").notNull(),
-  phone: text("phone"),
-  role: text("role").notNull().default("sender"), // sender, staff, admin
-  fullName: text("fullName").notNull(),
+// Enums
+const roleEnum = z.enum(["sender", "staff", "admin"]);
+const parcelStatusEnum = z.enum(["preparing", "in_transit", "delayed", "delivered", "customs_check"]);
+const frequencyEnum = z.enum(["realtime", "hourly", "daily"]);
+const issueSeverityEnum = z.enum(["low", "medium", "high"]);
+const issueStatusEnum = z.enum(["active", "resolved"]);
+const issueTypeEnum = z.enum(["weather", "traffic", "mechanical", "system"]);
+const transportModeEnum = z.enum(["road", "rail", "air", "multimodal"]);
+const notificationTypeEnum = z.enum(["delay", "status_change", "delivery", "weather"]);
+const channelEnum = z.enum(["email", "sms", "push"]);
+
+// User
+export const insertUserSchema = z.object({
+  id: z.number().optional(),
+  username: z.string(),
+  password: z.string(),
+  email: z.string().email(),
+  fullName: z.string(),
+  role: roleEnum,
+  phone: z.string().optional().nullable(),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
-  email: true,
-  phone: true,
-  role: true,
-  fullName: true,
-});
-
-// Parcels being shipped
-export const parcels = pgTable("parcels", {
-  id: serial("id").primaryKey(),
-  trackingNumber: text("trackingNumber").notNull().unique(),
-  userId: integer("userId").notNull(), // sender
-  origin: text("origin").notNull(),
-  destination: text("destination").notNull(),
-  status: text("status").notNull().default("preparing"), // preparing, in_transit, delayed, delivered, customs_check
-  transportMode: text("transportMode").notNull(), // road, rail, air, multimodal
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-  estimatedDelivery: timestamp("estimatedDelivery"),
-  actualDelivery: timestamp("actualDelivery"),
-  weight: text("weight").notNull(),
-  dimensions: text("dimensions"),
-  currentLocation: text("currentLocation"),
-  notes: text("notes"),
-  delayReason: text("delayReason"),
-  delayDuration: text("delayDuration"),
-});
-
-export const insertParcelSchema = createInsertSchema(parcels)
-  .pick({
-    trackingNumber: true,
-    userId: true,
-    origin: true,
-    destination: true,
-    status: true,
-    transportMode: true,
-    estimatedDelivery: true,
-    weight: true,
-    dimensions: true,
-    currentLocation: true,
-    notes: true,
-  })
-  .extend({
-    estimatedDelivery: z.preprocess(
-      (arg) => (typeof arg === "string" ? new Date(arg) : arg),
-      z.date()
-    ).optional(),
-  });
-
-// Routes for the parcels
-export const routes = pgTable("routes", {
-  id: serial("id").primaryKey(),
-  parcelId: integer("parcelId").notNull(),
-  routePath: json("routePath").notNull(), // Array of locations
-  transportMode: text("transportMode").notNull(), // road, rail, air
-  duration: text("duration").notNull(),
-  distance: text("distance").notNull(),
-  weather: json("weather"), // Weather conditions
-  traffic: json("traffic"), // Traffic conditions
-  active: boolean("active").notNull().default(true),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-});
-
-export const insertRouteSchema = createInsertSchema(routes).pick({
-  parcelId: true,
-  routePath: true,
-  transportMode: true,
-  duration: true,
-  distance: true,
-  weather: true, 
-  traffic: true,
-  active: true,
-});
-
-// Notifications for users
-export const notifications = pgTable("notifications", {
-  id: serial("id").primaryKey(),
-  userId: integer("userId").notNull(),
-  parcelId: integer("parcelId").notNull(),
-  type: text("type").notNull(), // delay, status_change, delivery, weather
-  message: text("message").notNull(),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-  read: boolean("read").notNull().default(false),
-  sent: boolean("sent").notNull().default(false),
-  channel: text("channel").notNull(), // email, sms, push
-});
-
-export const insertNotificationSchema = createInsertSchema(notifications).pick({
-  userId: true,
-  parcelId: true,
-  type: true,
-  message: true,
-  channel: true,
-  read: true,
-});
-
-// Issues affecting routes
-export const issues = pgTable("issues", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  description: text("description").notNull(),
-  severity: text("severity").notNull(), // low, medium, high
-  status: text("status").notNull().default("active"), // active, resolved
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-  resolvedAt: timestamp("resolvedAt"),
-  affectedParcels: json("affectedParcels"), // Array of parcel IDs
-  location: text("location"),
-  issueType: text("issueType").notNull(), // weather, traffic, mechanical, system
-});
-
-export const insertIssueSchema = createInsertSchema(issues).pick({
-  title: true,
-  description: true, 
-  severity: true,
-  status: true,
-  affectedParcels: true,
-  location: true,
-  issueType: true,
-});
-
-// User notification preferences
-export const notificationPreferences = pgTable("notificationPreferences", {
-  id: serial("id").primaryKey(),
-  userId: integer("userId").notNull().unique(),
-  delayNotifications: boolean("delayNotifications").notNull().default(true),
-  weatherAlerts: boolean("weatherAlerts").notNull().default(true),
-  statusChanges: boolean("statusChanges").notNull().default(true),
-  deliveryConfirmations: boolean("deliveryConfirmations").notNull().default(true),
-  emailEnabled: boolean("emailEnabled").notNull().default(true),
-  smsEnabled: boolean("smsEnabled").notNull().default(true),
-  pushEnabled: boolean("pushEnabled").notNull().default(false),
-  frequency: text("frequency").notNull().default("realtime"), // realtime, hourly, daily
-});
-
-export const insertNotificationPreferenceSchema = createInsertSchema(notificationPreferences).pick({
-  userId: true,
-  delayNotifications: true,
-  weatherAlerts: true, 
-  statusChanges: true,
-  deliveryConfirmations: true,
-  emailEnabled: true,
-  smsEnabled: true,
-  pushEnabled: true,
-  frequency: true,
-});
-
-// Stats for dashboard
-export const stats = pgTable("stats", {
-  id: serial("id").primaryKey(),
-  activeParcels: integer("activeParcels").notNull().default(0),
-  activeRoutes: integer("activeRoutes").notNull().default(0),
-  delayedParcels: integer("delayedParcels").notNull().default(0),
-  onTimeRate: text("onTimeRate").notNull().default("0"),
-  roadTransitPercentage: text("roadTransitPercentage").notNull().default("0"),
-  railTransitPercentage: text("railTransitPercentage").notNull().default("0"),
-  airTransitPercentage: text("airTransitPercentage").notNull().default("0"),
-  weatherImpactPercentage: text("weatherImpactPercentage").notNull().default("0"),
-  trafficCongestionPercentage: text("trafficCongestionPercentage").notNull().default("0"),
-  mechanicalIssuesPercentage: text("mechanicalIssuesPercentage").notNull().default("0"),
-  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
-});
-
-export const insertStatsSchema = createInsertSchema(stats).omit({
-  id: true,
-  updatedAt: true,
-});
-
-// Type exports
-export type InsertUser = z.infer<typeof insertUserSchema>;
-export type User = typeof users.$inferSelect;
-
-export type InsertParcel = Omit<z.infer<typeof insertParcelSchema>, "estimatedDelivery"> & {
-  estimatedDelivery?: Date | string | null;
+// Parcel
+const parseDate = (val: unknown) => {
+  if (val === undefined || val === null || val === "") return undefined;
+  if (val instanceof Date) return val;
+  if (typeof val === "string") {
+    const d = new Date(val);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  return undefined;
 };
-export type Parcel = typeof parcels.$inferSelect;
 
+export const insertParcelSchema = z.object({
+  id: z.number().optional(),
+  trackingNumber: z.string(),
+  userId: z.number(),
+  origin: z.string(),
+  destination: z.string(),
+  status: parcelStatusEnum,
+  transportMode: transportModeEnum,
+  createdAt: z.preprocess(parseDate, z.date().optional()),
+  estimatedDelivery: z.preprocess(parseDate, z.date().optional().nullable()),
+  actualDelivery: z.preprocess(parseDate, z.date().optional().nullable()),
+  weight: z.string(),
+  dimensions: z.string().optional().nullable(),
+  currentLocation: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  delayReason: z.string().optional().nullable(),
+  delayDuration: z.string().optional().nullable(),
+});
 
-export type InsertRoute = z.infer<typeof insertRouteSchema>;
-export type Route = typeof routes.$inferSelect;
+// Route
+export const insertRouteSchema = z.object({
+  id: z.number().optional(),
+  parcelId: z.number(),
+  routePath: z.array(z.string()),
+  transportMode: transportModeEnum,
+  duration: z.string(),
+  distance: z.string(),
+  weather: z.any().optional(), // can refine to match structure
+  traffic: z.any().optional(), // can refine to match structure
+  active: z.boolean().default(true),
+  createdAt: z.date().optional(),
+});
 
-export type InsertNotification = z.infer<typeof insertNotificationSchema>;
-export type Notification = typeof notifications.$inferSelect;
+// Notification
+export const insertNotificationSchema = z.object({
+  id: z.number().optional(),
+  userId: z.number(),
+  parcelId: z.number(),
+  type: notificationTypeEnum,
+  message: z.string(),
+  createdAt: z.date().optional(),
+  read: z.boolean().default(false),
+  sent: z.boolean().default(false),
+  channel: channelEnum,
+});
 
-export type InsertIssue = z.infer<typeof insertIssueSchema>;
-export type Issue = typeof issues.$inferSelect;
+// Issue
+export const insertIssueSchema = z.object({
+  id: z.number().optional(),
+  title: z.string(),
+  description: z.string(),
+  severity: issueSeverityEnum,
+  status: issueStatusEnum,
+  createdAt: z.date().optional(),
+  resolvedAt: z.date().optional().nullable(),
+  affectedParcels: z.array(z.number()).optional().nullable(),
+  location: z.string().optional().nullable(),
+  issueType: issueTypeEnum,
+});
 
-export type InsertNotificationPreference = z.infer<typeof insertNotificationPreferenceSchema>;
-export type NotificationPreference = typeof notificationPreferences.$inferSelect;
+// Notification Preferences
+export const insertNotificationPreferenceSchema = z.object({
+  id: z.number().optional(),
+  userId: z.number(),
+  delayNotifications: z.boolean().default(true),
+  weatherAlerts: z.boolean().default(true),
+  statusChanges: z.boolean().default(true),
+  deliveryConfirmations: z.boolean().default(true),
+  emailEnabled: z.boolean().default(true),
+  smsEnabled: z.boolean().default(true),
+  pushEnabled: z.boolean().default(false),
+  frequency: frequencyEnum,
+});
 
-export type InsertStats = z.infer<typeof insertStatsSchema>;
-export type Stats = typeof stats.$inferSelect;
+// Stats
+export const InsertStatsSchema = z.object({
+  id: z.number().optional(),
+  activeParcels: z.number(),
+  activeRoutes: z.number(),
+  delayedParcels: z.number(),
+  onTimeRate: z.string(),
+  roadTransitPercentage: z.string(),
+  railTransitPercentage: z.string(),
+  airTransitPercentage: z.string(),
+  weatherImpactPercentage: z.string(),
+  trafficCongestionPercentage: z.string(),
+  mechanicalIssuesPercentage: z.string(),
+  updatedAt: z.date().optional(),
+});
+
+export type User = z.infer<typeof insertUserSchema>;
+export type Parcel = z.infer<typeof insertParcelSchema>;
+export type Route = z.infer<typeof insertRouteSchema>;
+export type Notification = z.infer<typeof insertNotificationSchema>;
+export type Issue = z.infer<typeof insertIssueSchema>;
+export type NotificationPreference = z.infer<typeof insertNotificationPreferenceSchema>;
+export type Stats = z.infer<typeof InsertStatsSchema>;
