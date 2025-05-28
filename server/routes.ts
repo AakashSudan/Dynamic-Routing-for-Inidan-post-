@@ -11,12 +11,30 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import fetch from "node-fetch";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   setupAuth(app);
 
   // API routes
+  // ============= MAP ==================
+
+  // Proxy for /api/geocode
+app.get("/api/geocode", async (req, res) => {
+  const { location } = req.query;
+  if (!location) return res.status(400).json({ error: "Missing location" });
+  console.log(`Geocoding location: ${location}`);
+  // Call the FastAPI backend (adjust the port as needed)
+  const fastApiUrl = `http://localhost:8000/geocode?location=${encodeURIComponent(location as string)}`;
+  try {
+    const response = await fetch(fastApiUrl);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch from map backend" });
+  }
+});
   
   // ============= PARCELS ==================
   
