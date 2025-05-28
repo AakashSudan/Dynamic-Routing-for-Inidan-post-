@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/layout/header";
 import { Sidebar } from "@/components/layout/sidebar";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Route, Parcel, InsertRoute } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
+import { Route, Parcel } from "@shared/schema";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -56,25 +56,23 @@ import {
   Wind,
   ThermometerIcon,
 } from "lucide-react";
-import { useRef, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/components/ui/table";
 
-// Define route creation form schema
+// Define form schema
 const routeFormSchema = z.object({
   parcelId: z.number().positive(),
   transportMode: z.enum(["road", "rail", "air", "multimodal"]),
   duration: z.string().min(1, "Duration is required"),
   distance: z.string().min(1, "Distance is required"),
-  // Note: routePath, weather, and traffic will be added separately
 });
 
 export default function RouteOptimization() {
@@ -83,9 +81,14 @@ export default function RouteOptimization() {
   const [optimizationMode, setOptimizationMode] = useState<"speed" | "cost" | "carbon">("speed");
   const [transportFilter, setTransportFilter] = useState<string>("all");
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [optimizedRoute, setOptimizedRoute] = useState<{ path: L.LatLngExpression[] } | null>(null);
+  const [intermediateStops, setIntermediateStops] = useState<string[]>([]);
+  const [weatherData, setWeatherData] = useState<Record<string, any>>({});
+  const [trafficIncidents, setTrafficIncidents] = useState<any[]>([]);
+
   const mapRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<L.Map | null>(null);
-  
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
   // Fetch parcels and routes
@@ -95,29 +98,6 @@ export default function RouteOptimization() {
 
   const { data: routes, isLoading: isRoutesLoading } = useQuery<Route[]>({
     queryKey: ["/api/routes"],
-  });
-
-  // Route creation mutation
-  const routeMutation = useMutation({
-    mutationFn: async (newRoute: InsertRoute) => {
-      const res = await apiRequest("POST", "/api/routes", newRoute);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
-      toast({
-        title: "Route Created",
-        description: "The new route has been created successfully.",
-      });
-      form.reset();
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to Create Route",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
   });
 
   // Form for creating a new route
@@ -131,54 +111,167 @@ export default function RouteOptimization() {
     },
   });
 
-  // Handle route creation form submission
-  function onSubmit(values: z.infer<typeof routeFormSchema>) {
-    // Create mock route path
-    const routePath = [
-      { lat: 37.7749, lng: -122.4194, name: "San Francisco" },
-      { lat: 36.1699, lng: -115.1398, name: "Las Vegas" },
-      { lat: 34.0522, lng: -118.2437, name: "Los Angeles" },
+  // Mutation for creating a new route
+  const routeMutation = useMutation({
+    mutationFn: (newRoute: Omit<Route, "id" | "routePath" | "active" | "weather" | "traffic">) =>
+      apiRequest("POST", "/api/routes", newRoute),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
+      toast({
+        title: "Route Created",
+        description: "The new route has been successfully added.",
+      });
+      form.reset(); // Reset form fields after successful submission
+      setSelectedParcel(null); // Deselect the parcel after creating the route
+      setOptimizedRoute(null); // Clear optimized route
+      setIntermediateStops([]); // Clear intermediate stops
+      setWeatherData({}); // Clear weather data
+      setTrafficIncidents([]); // Clear traffic incidents
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to Create Route",
+        description: error.message || "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Define the onSubmit function
+  const onSubmit = async (values: z.infer<typeof routeFormSchema>) => {
+    if (!selectedParcel) {
+      toast({
+        title: "Error",
+        description: "Please select a parcel before creating a route.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Assuming routePath is derived from the optimized route or an empty array if not optimized
+    const routePath = optimizedRoute?.path.map(([lat, lng]) => ({ lat, lng })) || [];
+
+    // You might want to get actual weather and traffic data relevant to the *new* route here
+    // For now, we'll use placeholder or previously fetched data if available
+    const weather = weatherData[selectedParcel.origin] ? { conditions: weatherData[selectedParcel.origin].weather } : null;
+    const traffic = trafficIncidents.length > 0 ? { congestion: "moderate" } : null; // Simplified for example
+
+    routeMutation.mutate({
+      parcelId: values.parcelId,
+      transportMode: values.transportMode,
+      duration: values.duration,
+      distance: values.distance,
+      routePath: routePath,
+      active: true, // New routes are typically active
+      weather: weather,
+      traffic: traffic,
+    });
+  };
+
+  // Handle parcel selection
+  const handleParcelSelect = (parcelId: number) => {
+    const parcel = parcels?.find((p) => p.id === parcelId);
+    if (parcel) {
+      setSelectedParcel(parcel);
+      form.setValue("parcelId", parcel.id);
+      setOptimizedRoute(null); // Clear previous optimization
+      setIntermediateStops([]);
+    }
+  };
+
+  // Generate Bounding Box Around Path
+  function generateBBoxAroundPath(path: L.LatLngExpression[]) {
+    const coords = path.map((p: any) => ({ lat: p[0], lon: p[1] }));
+    const lats = coords.map(c => c.lat);
+    const lons = coords.map(c => c.lon);
+
+    const delta = 0.5;
+    return [
+      Math.min(...lons) - delta,
+      Math.min(...lats) - delta,
+      Math.max(...lons) + delta,
+      Math.max(...lats) + delta,
     ];
-
-    // Create mock weather and traffic
-    const weather = {
-      conditions: "partly_cloudy",
-      temperature: 72,
-      precipitation: 10,
-      windSpeed: 5,
-    };
-
-    const traffic = {
-      congestion: "moderate",
-      incidents: [],
-      averageSpeed: 55,
-    };
-
-    // Create the new route
-    const newRoute: InsertRoute = {
-      ...values,
-      routePath,
-      weather,
-      traffic,
-      active: true,
-    };
-
-    // Submit the route
-    routeMutation.mutate(newRoute);
   }
+
+  // Fetch weather for stops
+  useEffect(() => {
+    if (!selectedParcel) return;
+
+    const fetchWeatherForLocations = async () => {
+      try {
+        const locations = [
+          selectedParcel.origin,
+          ...intermediateStops,
+          selectedParcel.destination,
+        ];
+
+        const weatherResults: Record<string, any> = {};
+
+        for (const location of locations) {
+          const response = await apiRequest("GET", "/api/weather", {
+            params: { location },
+          });
+
+          if (!response.error && response.lat && response.lon) {
+            weatherResults[location] = response;
+          }
+        }
+
+        setWeatherData(weatherResults);
+      } catch (error) {
+        console.error("Error fetching weather:", error);
+      }
+    };
+
+    fetchWeatherForLocations();
+  }, [selectedParcel, intermediateStops]);
+
+  // Fetch traffic incidents along the route
+  useEffect(() => {
+    if (!selectedParcel) return;
+
+    const fetchTraffic = async () => {
+      try {
+        const originResponse = await apiRequest("GET", "/api/geocode", {
+          params: { location: selectedParcel.origin },
+        });
+        const destResponse = await apiRequest("GET", "/api/geocode", {
+          params: { location: selectedParcel.destination },
+        });
+
+        if (!originResponse.lat || !originResponse.lon || !destResponse.lat || !destResponse.lon) return;
+
+        const bbox = generateBBoxAroundPath([
+          [originResponse.lat, originResponse.lon],
+          [destResponse.lat, destResponse.lon],
+        ]).join(",");
+
+        const incidentResponse = await apiRequest("GET", "/api/traffic/incidents", {
+          params: { location: selectedParcel.origin },
+        });
+
+        if (!incidentResponse.error && Array.isArray(incidentResponse)) {
+          setTrafficIncidents(incidentResponse);
+        }
+      } catch (error) {
+        console.error("Error fetching traffic:", error);
+      }
+    };
+
+    fetchTraffic();
+  }, [selectedParcel]);
 
   // Initialize map when component mounts
   useEffect(() => {
     if (mapRef.current && !leafletMapRef.current) {
-      leafletMapRef.current = L.map(mapRef.current).setView([37.0902, -95.7129], 4);
-      
-      // Add tile layer (map background)
+      leafletMapRef.current = L.map(mapRef.current).setView([20.5937, 78.9629], 5); // India center
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright ">OpenStreetMap</a> contributors',
       }).addTo(leafletMapRef.current);
     }
-    
-    // Clean up on unmount
+
     return () => {
       if (leafletMapRef.current) {
         leafletMapRef.current.remove();
@@ -187,132 +280,184 @@ export default function RouteOptimization() {
     };
   }, []);
 
-  // Draw routes on map when routes data changes
+  // Draw route and markers
   useEffect(() => {
     if (leafletMapRef.current && routes && routes.length > 0) {
-      // Clear existing routes
-      leafletMapRef.current.eachLayer((layer) => {
-        if (layer instanceof L.Polyline || layer instanceof L.Marker) {
+      leafletMapRef.current.eachLayer(layer => {
+        if (
+          layer instanceof L.Polyline ||
+          layer instanceof L.Marker ||
+          (layer.options as any)?.className === "optimized-route"
+        ) {
           leafletMapRef.current?.removeLayer(layer);
         }
       });
-      
-      // Filter routes based on transport filter
-      const filteredRoutes = transportFilter === "all" 
-        ? routes 
-        : routes.filter(route => route.transportMode === transportFilter);
-      
-      // Draw each route
-      filteredRoutes.forEach((route) => {
+
+      const filteredRoutes =
+        transportFilter === "all"
+          ? routes
+          : routes.filter(route => route.transportMode === transportFilter);
+
+      filteredRoutes.forEach(route => {
         if (route.routePath && Array.isArray(route.routePath)) {
-          // Convert route path to LatLng[]
-          const points = route.routePath.map((point: any) => [point.lat, point.lng]);
-          
+          const points = route.routePath.map(point => [point.lat, point.lng]);
           if (points.length >= 2) {
-            // Create line color based on transport mode
-            const color = route.transportMode === "road" ? "#22c55e" : 
-                          route.transportMode === "rail" ? "#3b82f6" : 
-                          route.transportMode === "air" ? "#8b5cf6" : "#f59e0b";
-            
-            // Create polyline for route
-            L.polyline(points as L.LatLngExpression[], { 
-              color, 
-              weight: 3, 
-              opacity: 0.7 
+            const color =
+              route.transportMode === "road"
+                ? "#22c55e"
+                : route.transportMode === "rail"
+                  ? "#3b82f6"
+                  : "#8b5cf6";
+
+            L.polyline(points as L.LatLngExpression[], {
+              color,
+              weight: 3,
+              opacity: 0.7,
             }).addTo(leafletMapRef.current!);
-            
-            // Add markers for start and end points
-            L.marker(points[0] as L.LatLngExpression)
-              .addTo(leafletMapRef.current!)
-              .bindPopup("Origin");
-              
-            L.marker(points[points.length - 1] as L.LatLngExpression)
+
+            L.marker(points[0]).addTo(leafletMapRef.current!).bindPopup("Origin");
+            L.marker(points[points.length - 1])
               .addTo(leafletMapRef.current!)
               .bindPopup("Destination");
           }
         }
       });
-    }
-  }, [routes, transportFilter]);
 
-  // Handle parcel selection
-  const handleParcelSelect = (parcelId: number) => {
-    const parcel = parcels?.find(p => p.id === parcelId);
-    if (parcel) {
-      setSelectedParcel(parcel);
-      form.setValue("parcelId", parcel.id);
+      // Draw optimized route
+      if (optimizedRoute?.path) {
+        L.polyline(optimizedRoute.path, {
+          color: "#ef4444",
+          weight: 4,
+          className: "optimized-route",
+        }).addTo(leafletMapRef.current);
+
+        L.marker(optimizedRoute.path[0]).addTo(leafletMapRef.current).bindPopup("Start");
+        L.marker(optimizedRoute.path[optimizedRoute.path.length - 1])
+          .addTo(leafletMapRef.current)
+          .bindPopup("End");
+      }
+
+      // Draw weather markers
+      Object.entries(weatherData).forEach(([location, data]) => {
+        const lat = data.lat;
+        const lon = data.lon;
+        const iconUrl = data.weather === "Rain"
+          ? "https://cdn-icons-png.flaticon.com/512/1163/1163661.png "
+          : "https://cdn-icons-png.flaticon.com/512/1163/1163661.png "; // Consider a sun icon for non-rainy weather
+
+        const icon = L.icon({
+          iconUrl,
+          iconSize: [20, 20],
+          iconAnchor: [10, 10],
+        });
+
+        L.marker([lat, lon], { icon })
+          .addTo(leafletMapRef.current!)
+          .bindPopup(`<strong>${location}</strong><br>${data.weather}`);
+      });
+
+      // Draw traffic incidents
+      trafficIncidents.forEach((incident) => {
+        const [lon, lat] = incident.location;
+        const iconUrl = incident.isRoadClosed
+          ? "https://cdn-icons-png.flaticon.com/512/1163/1163661.png " // Consider a specific incident icon
+          : "https://cdn-icons-png.flaticon.com/512/1163/1163661.png ";
+
+        const icon = L.icon({
+          iconUrl,
+          iconSize: [20, 20],
+          iconAnchor: [10, 10],
+        });
+
+        L.marker([lat, lon], { icon })
+          .addTo(leafletMapRef.current!)
+          .bindPopup(`<strong>Traffic Incident</strong><br>${incident.title}`);
+      });
     }
-  };
+  }, [routes, transportFilter, optimizedRoute, weatherData, trafficIncidents]);
 
   // Handle optimize button click
-  const handleOptimize = () => {
+  const handleOptimize = async () => {
     if (!selectedParcel) {
       toast({
         title: "No Parcel Selected",
-        description: "Please select a parcel to optimize a route for.",
+        description: "Please select a parcel to optimize a route.",
         variant: "destructive",
       });
       return;
     }
-    
+
     setIsOptimizing(true);
-    
-    // Simulate optimization process
-    setTimeout(() => {
-      // Simulate new optimized route values
-      form.setValue("transportMode", optimizationMode === "speed" ? "air" : 
-                                    optimizationMode === "cost" ? "road" : "rail");
-      form.setValue("duration", optimizationMode === "speed" ? "2h 15m" : 
-                               optimizationMode === "cost" ? "18h 30m" : "12h 45m");
-      form.setValue("distance", optimizationMode === "speed" ? "1,200 miles" : 
-                               optimizationMode === "cost" ? "980 miles" : "1,050 miles");
-      
+
+    try {
+      const origin = selectedParcel.origin;
+      const destination = selectedParcel.destination;
+
+      const payload = {
+        start: origin,
+        end: destination,
+        intermediate_post_offices: intermediateStops,
+      };
+
+      const response = await apiRequest("POST", "/api/route/dynamic", payload);
+
+      if (response.error) throw new Error(response.error);
+
+      if (response.routePath && Array.isArray(response.routePath)) {
+        const latLngPath = response.routePath.map((point: any) => [point.lat, point.lng]);
+        setOptimizedRoute({ path: latLngPath });
+      }
+
+      form.setValue(
+        "transportMode",
+        optimizationMode === "speed" ? "air" :
+          optimizationMode === "cost" ? "road" : "rail"
+      );
+      form.setValue("duration", response.duration || "N/A");
+      form.setValue("distance", response.distance || "N/A");
+
       toast({
         title: "Route Optimized",
-        description: `Route optimized for ${optimizationMode} with ${form.getValues("transportMode")} transport.`,
+        description: `Route optimized for ${optimizationMode} using real-time data.`,
       });
-      
+    } catch (error: any) {
+      toast({
+        title: "Optimization Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
       setIsOptimizing(false);
-    }, 2000);
+    }
   };
 
   const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen);
+    setSidebarOpen(prev => !prev);
   };
 
   const getTransportIcon = (mode: string) => {
     switch (mode) {
-      case "road":
-        return <TruckIcon className="h-4 w-4" />;
-      case "rail":
-        return <TrainIcon className="h-4 w-4" />;
-      case "air":
-        return <PlaneIcon className="h-4 w-4" />;
-      case "multimodal":
-        return (
-          <div className="flex">
-            <TruckIcon className="h-4 w-4 mr-1" />
-            <PlaneIcon className="h-4 w-4" />
-          </div>
-        );
-      default:
-        return <TruckIcon className="h-4 w-4" />;
+      case "road": return <TruckIcon className="h-4 w-4" />;
+      case "rail": return <TrainIcon className="h-4 w-4" />;
+      case "air": return <PlaneIcon className="h-4 w-4" />;
+      case "multimodal": return <RouteIcon className="h-4 w-4" />; // Using a generic route icon for multimodal
+      default: return null;
     }
   };
 
   return (
     <div className="min-h-screen flex">
       {sidebarOpen && <Sidebar className="hidden md:block" />}
-      
+
       <div className="flex-1 flex flex-col">
         <Header onToggleSidebar={toggleSidebar} />
-        
+
         <main className="flex-1 overflow-auto p-4 md:p-6 bg-slate-100">
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-slate-900">Route Optimization</h1>
             <p className="text-slate-500 mt-1">Optimize parcel routes based on weather, traffic, and schedules</p>
           </div>
-          
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             {/* Parcels for routing */}
             <Card className="lg:col-span-1">
@@ -345,7 +490,7 @@ export default function RouteOptimization() {
                       </TableHeader>
                       <TableBody>
                         {parcels.map((parcel) => (
-                          <TableRow 
+                          <TableRow
                             key={parcel.id}
                             className={selectedParcel?.id === parcel.id ? "bg-primary/10" : ""}
                           >
@@ -355,8 +500,8 @@ export default function RouteOptimization() {
                               <div className="text-muted-foreground text-sm">→ {parcel.destination}</div>
                             </TableCell>
                             <TableCell className="text-right">
-                              <Button 
-                                variant="outline" 
+                              <Button
+                                variant="outline"
                                 size="sm"
                                 onClick={() => handleParcelSelect(parcel.id)}
                               >
@@ -376,13 +521,13 @@ export default function RouteOptimization() {
                 )}
               </CardContent>
             </Card>
-            
+
             {/* Route Optimization */}
             <Card className="lg:col-span-2">
               <CardHeader>
                 <CardTitle>Route Optimization</CardTitle>
                 <CardDescription>
-                  {selectedParcel 
+                  {selectedParcel
                     ? `Optimizing route for ${selectedParcel.trackingNumber}: ${selectedParcel.origin} → ${selectedParcel.destination}`
                     : "Select a parcel to begin route optimization"}
                 </CardDescription>
@@ -393,32 +538,32 @@ export default function RouteOptimization() {
                     <TabsTrigger value="map">Map View</TabsTrigger>
                     <TabsTrigger value="form">Route Details</TabsTrigger>
                   </TabsList>
-                  
+
                   <TabsContent value="map" className="h-[400px] relative">
                     <div className="absolute inset-x-0 top-0 p-2 z-10 flex justify-between items-center">
                       <div className="flex space-x-2">
-                        <Badge 
+                        <Badge
                           variant={transportFilter === "all" ? "default" : "outline"}
                           className="cursor-pointer"
                           onClick={() => setTransportFilter("all")}
                         >
                           All Routes
                         </Badge>
-                        <Badge 
+                        <Badge
                           variant={transportFilter === "road" ? "default" : "outline"}
                           className="cursor-pointer"
                           onClick={() => setTransportFilter("road")}
                         >
                           <TruckIcon className="h-3 w-3 mr-1" /> Road
                         </Badge>
-                        <Badge 
+                        <Badge
                           variant={transportFilter === "rail" ? "default" : "outline"}
                           className="cursor-pointer"
                           onClick={() => setTransportFilter("rail")}
                         >
                           <TrainIcon className="h-3 w-3 mr-1" /> Rail
                         </Badge>
-                        <Badge 
+                        <Badge
                           variant={transportFilter === "air" ? "default" : "outline"}
                           className="cursor-pointer"
                           onClick={() => setTransportFilter("air")}
@@ -426,46 +571,46 @@ export default function RouteOptimization() {
                           <PlaneIcon className="h-3 w-3 mr-1" /> Air
                         </Badge>
                       </div>
-                      
+
                       <Button variant="outline" size="sm" className="h-7">
                         <RefreshCw className="h-3.5 w-3.5 mr-1" />
                         Refresh
                       </Button>
                     </div>
-                    
+
                     <div ref={mapRef} className="h-full w-full z-0"></div>
-                    
+
                     {isRoutesLoading && (
                       <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
                         <LoaderIcon className="h-8 w-8 text-primary animate-spin" />
                       </div>
                     )}
                   </TabsContent>
-                  
+
                   <TabsContent value="form">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* Optimization Options */}
                       <div className="space-y-4">
                         <h3 className="text-lg font-medium">Optimization Preferences</h3>
-                        
+
                         <div className="space-y-2">
                           <h4 className="text-sm font-medium">Optimize For:</h4>
                           <div className="flex space-x-2">
-                            <Button 
+                            <Button
                               variant={optimizationMode === "speed" ? "default" : "outline"}
                               size="sm"
                               onClick={() => setOptimizationMode("speed")}
                             >
                               Speed
                             </Button>
-                            <Button 
+                            <Button
                               variant={optimizationMode === "cost" ? "default" : "outline"}
                               size="sm"
                               onClick={() => setOptimizationMode("cost")}
                             >
                               Cost
                             </Button>
-                            <Button 
+                            <Button
                               variant={optimizationMode === "carbon" ? "default" : "outline"}
                               size="sm"
                               onClick={() => setOptimizationMode("carbon")}
@@ -474,7 +619,7 @@ export default function RouteOptimization() {
                             </Button>
                           </div>
                         </div>
-                        
+
                         <div className="space-y-2">
                           <h4 className="text-sm font-medium">Current Conditions:</h4>
                           <div className="grid grid-cols-2 gap-2">
@@ -482,33 +627,44 @@ export default function RouteOptimization() {
                               <CloudRain className="h-5 w-5 text-blue-500 mr-2" />
                               <div>
                                 <p className="text-xs text-slate-500">Weather</p>
-                                <p className="text-sm font-medium">Partly Cloudy</p>
+                                {/* Display specific weather data from state if available */}
+                                <p className="text-sm font-medium">
+                                  {selectedParcel && weatherData[selectedParcel.origin]?.weather || "N/A"}
+                                </p>
                               </div>
                             </div>
                             <div className="bg-slate-50 p-3 rounded flex items-center">
                               <ThermometerIcon className="h-5 w-5 text-orange-500 mr-2" />
                               <div>
                                 <p className="text-xs text-slate-500">Temperature</p>
-                                <p className="text-sm font-medium">72°F</p>
+                                <p className="text-sm font-medium">
+                                  {selectedParcel && weatherData[selectedParcel.origin]?.temperature ?
+                                    `${weatherData[selectedParcel.origin].temperature}°F` : "N/A"}
+                                </p>
                               </div>
                             </div>
                             <div className="bg-slate-50 p-3 rounded flex items-center">
                               <Wind className="h-5 w-5 text-slate-500 mr-2" />
                               <div>
                                 <p className="text-xs text-slate-500">Wind</p>
-                                <p className="text-sm font-medium">5 mph NE</p>
+                                <p className="text-sm font-medium">
+                                  {selectedParcel && weatherData[selectedParcel.origin]?.windSpeed ?
+                                    `${weatherData[selectedParcel.origin].windSpeed} mph ${weatherData[selectedParcel.origin]?.windDirection || ''}` : "N/A"}
+                                </p>
                               </div>
                             </div>
                             <div className="bg-slate-50 p-3 rounded flex items-center">
                               <RouteIcon className="h-5 w-5 text-red-500 mr-2" />
                               <div>
                                 <p className="text-xs text-slate-500">Traffic</p>
-                                <p className="text-sm font-medium">Moderate</p>
+                                <p className="text-sm font-medium">
+                                  {trafficIncidents.length > 0 ? "Incidents Reported" : "Clear"}
+                                </p>
                               </div>
                             </div>
                           </div>
                         </div>
-                        
+
                         <Button
                           onClick={handleOptimize}
                           disabled={!selectedParcel || isOptimizing}
@@ -527,11 +683,11 @@ export default function RouteOptimization() {
                           )}
                         </Button>
                       </div>
-                      
+
                       {/* Route Form */}
                       <div className="space-y-4">
                         <h3 className="text-lg font-medium">Route Details</h3>
-                        
+
                         <Form {...form}>
                           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                             <FormField
@@ -557,7 +713,7 @@ export default function RouteOptimization() {
                                 </FormItem>
                               )}
                             />
-                            
+
                             <FormField
                               control={form.control}
                               name="duration"
@@ -571,7 +727,7 @@ export default function RouteOptimization() {
                                 </FormItem>
                               )}
                             />
-                            
+
                             <FormField
                               control={form.control}
                               name="distance"
@@ -585,9 +741,9 @@ export default function RouteOptimization() {
                                 </FormItem>
                               )}
                             />
-                            
-                            <Button 
-                              type="submit" 
+
+                            <Button
+                              type="submit"
                               className="w-full"
                               disabled={!selectedParcel || routeMutation.isPending}
                             >
@@ -612,7 +768,7 @@ export default function RouteOptimization() {
               </CardContent>
             </Card>
           </div>
-          
+
           {/* Existing Routes Table */}
           <Card>
             <CardHeader>
@@ -655,10 +811,14 @@ export default function RouteOptimization() {
                           <TableCell>
                             {typeof route.weather === 'object' && route.weather !== null ? (
                               <div className="flex items-center">
-                                <SunIcon className="h-4 w-4 text-amber-500 mr-1" />
+                                {/* Conditional rendering for weather icon */}
+                                {(route.weather as any).conditions?.toLowerCase().includes("rain") ?
+                                  <CloudRain className="h-4 w-4 text-blue-500 mr-1" /> :
+                                  <SunIcon className="h-4 w-4 text-amber-500 mr-1" />
+                                }
                                 <span>
-                                  {(route.weather as any).conditions === "partly_cloudy" 
-                                    ? "Partly Cloudy" 
+                                  {(route.weather as any).conditions === "partly_cloudy"
+                                    ? "Partly Cloudy"
                                     : (route.weather as any).conditions}
                                 </span>
                               </div>
