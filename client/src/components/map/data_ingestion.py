@@ -130,6 +130,9 @@ def fetch_weather_data(lat, lon):
         response = requests.get(url)
         data = response.json()
         weather = data.get('weather', [{}])[0].get('main', 'Clear')
+        weather = data.get('weather', [{}])[0].get('main', 'Clear')
+        weather = data.get('weather', [{}])[0].get('main', 'Clear')
+        weather = data.get('weather', [{}])[0].get('main', 'Clear')
         risk = "high" if weather.lower() in ["thunderstorm", "rain", "snow"] else "low"
         return {"lat": lat, "lon": lon, "weather": weather, "risk": risk}
     except Exception as e:

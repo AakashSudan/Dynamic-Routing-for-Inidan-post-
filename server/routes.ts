@@ -66,7 +66,7 @@ app.get("/api/geocode", async (req, res) => {
 
   // Proxy for /api/weather
   app.get("/api/weather", async (req, res) => {
-    const { location } = req.query;
+    const { location } = req.body;
     if (!location) return res.status(400).json({ error: "Missing location" });
     const fastApiUrl = `http://localhost:8000/weather?location=${encodeURIComponent(location as string)}`;
     try {
@@ -92,9 +92,9 @@ app.get("/api/geocode", async (req, res) => {
 
   // Proxy for /api/route/optimized
   app.post("/api/route/optimized", async (req, res) => {
-    const { start, end } = req.query;
-    if (!start || !end) return res.status(400).json({ error: "Missing start or end" + req.query });
-    console.log(`Optimizing route from ${start} to ${end}`+req.query);
+    const { start, end } = req.body;
+    // console.log(`Optimizing route from ${start} to ${end}`);
+    if (!start || !end) return res.status(400).json({ error: "Missing start or end: " + req.body });
     const fastApiUrl = `http://localhost:8000/route/optimized?start=${encodeURIComponent(start as string)}&end=${encodeURIComponent(end as string)}`;
     try {
       const response = await fetch(fastApiUrl);

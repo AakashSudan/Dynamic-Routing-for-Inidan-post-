@@ -1,5 +1,3 @@
-
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/layout/header";
@@ -255,7 +253,7 @@ export default function RouteOptimization() {
           // Fetch weather via GET without a request body (append query param)
           const response = await apiRequest(
             "GET",
-            `/weather?location=${encodeURIComponent(location)}`
+            `/api/weather?location=${encodeURIComponent(location)}`
           );
           // Store weather data if successful and coordinates are available
           if (!response.error && response.lat && response.lon) {
@@ -351,6 +349,9 @@ export default function RouteOptimization() {
    * Effect hook to draw/update routes, markers, weather, and traffic incidents on the map.
    * Runs whenever routes, transportFilter, optimizedRoute, weatherData, or trafficIncidents change.
    */
+
+
+  /* I COMMENED THIS BUT WE CAN CHANGE THIS LATER IF I NEED MULTIPLE INFO ON ROUTES
   useEffect(() => {
     if (leafletMapRef.current) {
       // Clear all existing polylines, markers, and custom layers
@@ -444,8 +445,38 @@ export default function RouteOptimization() {
           .bindPopup(`<strong>Traffic Incident</strong><br>${incident.title || 'N/A'}<br>Type: ${incident.type || 'N/A'}`);
       });
     }
-  }, [routes, transportFilter, optimizedRoute, weatherData, trafficIncidents]);
+  }, [routes, transportFilter, optimizedRoute, weatherData, trafficIncidents]);   */
+useEffect(() => {
+  if (leafletMapRef.current) {
+    // Clear previous layers
+    leafletMapRef.current.eachLayer(layer => {
+      if ((layer as L.Polyline).options?.className === "optimized-route") {
+        leafletMapRef.current!.removeLayer(layer);
+      }
+    });
 
+    // Draw optimized route
+    if (optimizedRoute?.path && optimizedRoute.path.length >= 2) {
+      L.polyline(optimizedRoute.path, {
+        color: "#ef4444",
+        weight: 4,
+        className: "optimized-route",
+      }).addTo(leafletMapRef.current);
+
+      // Add markers
+      L.marker(optimizedRoute.path[0])
+        .addTo(leafletMapRef.current)
+        .bindPopup("Start");
+
+      L.marker(optimizedRoute.path[optimizedRoute.path.length - 1])
+        .addTo(leafletMapRef.current)
+        .bindPopup("End");
+
+      // Auto-zoom to route
+      leafletMapRef.current.fitBounds(L.latLngBounds(optimizedRoute.path as L.LatLng[]));
+    }
+  }
+}, [optimizedRoute]);
   /**
    * Handles the click event for the "Optimize Route" button.
    * Triggers the backend optimization API call and updates UI states.
@@ -461,14 +492,14 @@ export default function RouteOptimization() {
     }
     setIsOptimizing(true);
     try {
-      const start = selectedParcel.origin;
-      const end = selectedParcel.destination;
+      const origin = selectedParcel.origin;
+      const destination = selectedParcel.destination;
       const payload = {
         start: origin,
         end: destination,
         intermediate_post_offices: intermediateStops,
       };
-      console.log("Optimizing route with payload:", payload);
+      // console.log("Optimizing route with payload:", payload);
       const response = await apiRequest("POST", "/api/route/optimized", payload);
       if (response.error) throw new Error(response.error);
 
@@ -479,6 +510,7 @@ export default function RouteOptimization() {
           .map(point => [point[0], point[1]]); // Convert [lat, lon] to Leaflet-friendly format
 
         setOptimizedRoute({ path: latLngPath });
+        setActiveTab("map");
         // Update form fields with route details
         const eta = "N/A"; // Backend doesn't provide eta in current response
         const distance_km = response.optimized_route.length * 100; // Placeholder calculation
