@@ -1,3 +1,5 @@
+
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/layout/header";
@@ -9,6 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import L from "leaflet";
+import axios from "axios";  // For client-side geocoding via OpenStreetMap Nominatim
 import "leaflet/dist/leaflet.css";
 import {
   Card,
@@ -96,6 +99,22 @@ export default function RouteOptimization() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
+  // Geocode cache and client-side lookup using Nominatim
+  const geocodeCache = useRef<Record<string, [number, number]>>({});
+  const geocode = async (place: string): Promise<[number, number]> => {
+    if (geocodeCache.current[place]) return geocodeCache.current[place];
+    const resp = await axios.get("https://nominatim.openstreetmap.org/search",  {
+      params: { q: place, format: "json", limit: 1 }
+    });
+    if (!resp.data || resp.data.length === 0) {
+      throw new Error(`Geocode failed for ${place}`);
+    }
+    const { lat, lon } = resp.data[0];
+    const coords: [number, number] = [parseFloat(lat), parseFloat(lon)];
+    geocodeCache.current[place] = coords;
+    return coords;
+  };
+
   // Fetch parcels data using React Query
   const { data: parcels, isLoading: isParcelsLoading } = useQuery<Parcel[]>({
     queryKey: ["/api/parcels"],
@@ -159,10 +178,8 @@ export default function RouteOptimization() {
       });
       return;
     }
-
     // Convert optimized route path to the format expected by the backend schema
     const routePath = optimizedRoute?.path.map(([lat, lng]) => ({ lat, lng })) || [];
-
     // Construct weather and traffic objects based on fetched data for the origin
     // Note: You might want more sophisticated logic for aggregating weather/traffic
     // across the entire route or for specific intermediate points.
@@ -210,7 +227,6 @@ export default function RouteOptimization() {
     const coords = path.map((p: any) => ({ lat: p[0], lon: p[1] }));
     const lats = coords.map(c => c.lat);
     const lons = coords.map(c => c.lon);
-
     const delta = 0.5; // A small buffer for the bounding box
     return [
       Math.min(...lons) - delta,
@@ -227,7 +243,6 @@ export default function RouteOptimization() {
    */
   useEffect(() => {
     if (!selectedParcel) return;
-
     const fetchWeatherForLocations = async () => {
       try {
         const locations = [
@@ -235,16 +250,13 @@ export default function RouteOptimization() {
           ...intermediateStops,
           selectedParcel.destination,
         ];
-
         const weatherResults: Record<string, any> = {};
-
         for (const location of locations) {
           // Fetch weather via GET without a request body (append query param)
           const response = await apiRequest(
             "GET",
             `/weather?location=${encodeURIComponent(location)}`
           );
-
           // Store weather data if successful and coordinates are available
           if (!response.error && response.lat && response.lon) {
             weatherResults[location] = response;
@@ -255,7 +267,6 @@ export default function RouteOptimization() {
         console.error("Error fetching weather:", error);
       }
     };
-
     fetchWeatherForLocations();
   }, [selectedParcel, intermediateStops]);
 
@@ -265,36 +276,30 @@ export default function RouteOptimization() {
    */
   useEffect(() => {
     if (!selectedParcel) return;
-
     const fetchTraffic = async () => {
       try {
         // Geocode origin and destination to get coordinates for bounding box
         const originResponse = await apiRequest("GET", `/api/geocode?location=${encodeURIComponent(selectedParcel.origin)}`);
-
         const destResponse = await apiRequest("GET",
-      `/api/geocode?location=${encodeURIComponent(selectedParcel.destination)}`
+          `/api/geocode?location=${encodeURIComponent(selectedParcel.destination)}`
         );
         // Log responses for debugging
         console.log("Origin geocode response:", originResponse);
         console.log("Destination geocode response:", destResponse);
-
         if (!originResponse.lat || !originResponse.lon || !destResponse.lat || !destResponse.lon) {
           console.warn("Could not geocode origin or destination for traffic incidents.");
           return;
         }
-
         // Generate a bounding box around the origin and destination
         const bbox = generateBBoxAroundPath([
           [originResponse.lat, originResponse.lon],
           [destResponse.lat, destResponse.lon],
         ]).join(",");
-
         // Fetch traffic incidents within the bounding box (using origin as a proxy for location param)
         const incidentResponse = await apiRequest(
-        "GET",
-        `/traffic/incidents?location=${encodeURIComponent(selectedParcel.origin)}`
-);
-
+          "GET",
+          `/traffic/incidents?location=${encodeURIComponent(selectedParcel.origin)}`
+        );
         if (!incidentResponse.error && Array.isArray(incidentResponse)) {
           setTrafficIncidents(incidentResponse);
         } else {
@@ -306,7 +311,6 @@ export default function RouteOptimization() {
         setTrafficIncidents([]);
       }
     };
-
     fetchTraffic();
   }, [selectedParcel]);
 
@@ -319,12 +323,11 @@ export default function RouteOptimization() {
       // Initialize map centered on India with a zoom level
       leafletMapRef.current = L.map(mapRef.current).setView([20.5937, 78.9629], 5);
       // Add OpenStreetMap tile layer
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",  {
         attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright ">OpenStreetMap</a> contributors',
+          '&copy; <a href="https://www.openstreetmap.org/copyright  ">OpenStreetMap</a> contributors',
       }).addTo(leafletMapRef.current);
     }
-
     // Cleanup function: remove map when component unmounts
     return () => {
       if (leafletMapRef.current) {
@@ -362,13 +365,11 @@ export default function RouteOptimization() {
           leafletMapRef.current?.removeLayer(layer);
         }
       });
-
       // Filter existing routes based on the selected transport mode
       const filteredRoutes =
         transportFilter === "all"
           ? routes
           : routes?.filter(route => route.transportMode === transportFilter);
-
       // Draw existing routes on the map
       filteredRoutes?.forEach(route => {
         if (route.routePath && Array.isArray(route.routePath)) {
@@ -381,13 +382,11 @@ export default function RouteOptimization() {
                 : route.transportMode === "rail"
                   ? "#3b82f6" // Blue for rail
                   : "#8b5cf6"; // Purple for air/multimodal
-
             L.polyline(points as L.LatLngExpression[], {
               color,
               weight: 3,
               opacity: 0.7,
             }).addTo(leafletMapRef.current!);
-
             // Add origin and destination markers for existing routes
             L.marker(points[0]).addTo(leafletMapRef.current!).bindPopup(`Origin: ${route.parcelId}`);
             L.marker(points[points.length - 1])
@@ -396,7 +395,6 @@ export default function RouteOptimization() {
           }
         }
       });
-
       // Draw the newly optimized route (if available)
       if (optimizedRoute?.path && optimizedRoute.path.length >= 2) {
         L.polyline(optimizedRoute.path, {
@@ -404,51 +402,43 @@ export default function RouteOptimization() {
           weight: 4,
           className: "optimized-route",
         }).addTo(leafletMapRef.current);
-
         // Add start and end markers for the optimized route
         L.marker(optimizedRoute.path[0]).addTo(leafletMapRef.current).bindPopup("Optimized Route Start");
         L.marker(optimizedRoute.path[optimizedRoute.path.length - 1])
           .addTo(leafletMapRef.current)
           .bindPopup("Optimized Route End");
-
         // Fit map bounds to the optimized route
         leafletMapRef.current.fitBounds(L.latLngBounds(optimizedRoute.path as L.LatLng[]));
       }
-
       // Draw weather markers based on fetched weather data
       Object.entries(weatherData).forEach(([location, data]) => {
         const lat = data.lat;
         const lon = data.lon;
         // Choose icon based on weather conditions
         const iconUrl = data.weather?.toLowerCase().includes("rain") || data.weather?.toLowerCase().includes("cloud")
-          ? "https://cdn-icons-png.flaticon.com/512/1163/1163661.png" // Cloud/Rain icon
-          : "https://cdn-icons-png.flaticon.com/512/2698/2698194.png"; // Sun icon for clear weather
-
+          ? "https://cdn-icons-png.flaticon.com/512/1163/1163661.png"  // Cloud/Rain icon
+          : "https://cdn-icons-png.flaticon.com/512/2698/2698194.png";  // Sun icon for clear weather
         const icon = L.icon({
           iconUrl,
           iconSize: [25, 25], // Slightly larger for better visibility
           iconAnchor: [12, 25], // Anchor at the bottom center of the icon
           className: "weather-marker"
         });
-
         L.marker([lat, lon], { icon })
           .addTo(leafletMapRef.current!)
           .bindPopup(`<strong>${location}</strong><br>Weather: ${data.weather || 'N/A'}<br>Temp: ${data.temperature || 'N/A'}°F`);
       });
-
       // Draw traffic incidents on the map
       trafficIncidents.forEach((incident) => {
         const [lon, lat] = incident.location; // Assuming location is [lon, lat] from backend
         // Use a generic alert icon for traffic incidents
-        const iconUrl = "https://cdn-icons-png.flaticon.com/512/1163/1163661.png"; // Generic traffic incident icon
-
+        const iconUrl = "https://cdn-icons-png.flaticon.com/512/1163/1163661.png";  // Generic traffic incident icon
         const icon = L.icon({
           iconUrl,
           iconSize: [25, 25],
           iconAnchor: [12, 25],
           className: "traffic-incident-marker"
         });
-
         L.marker([lat, lon], { icon })
           .addTo(leafletMapRef.current!)
           .bindPopup(`<strong>Traffic Incident</strong><br>${incident.title || 'N/A'}<br>Type: ${incident.type || 'N/A'}`);
@@ -461,79 +451,68 @@ export default function RouteOptimization() {
    * Triggers the backend optimization API call and updates UI states.
    */
   const handleOptimize = async () => {
-  if (!selectedParcel) {
-    toast({
-      title: "No Parcel Selected",
-      description: "Please select a parcel to optimize a route.",
-      variant: "destructive",
-    });
-    return;
-  }
-
-  setIsOptimizing(true);
-
-  try {
-    const origin = selectedParcel.origin;
-    const destination = selectedParcel.destination;
-
-    const payload = {
-      origin: origin,
-      destination: destination,
-      intermediate_post_offices: intermediateStops,
-    };
-
-    const response = await apiRequest("POST", "/route/dynamic", payload);
-
-    if (response.error) throw new Error(response.error);
-
-    // ✅ Corrected parsing logic here
-    if (
-      response.optimized_route &&
-      Array.isArray(response.optimized_route) &&
-      response.optimized_route.length > 0 &&
-      Array.isArray(response.optimized_route[0].route)
-    ) {
-      const latLngPath = response.optimized_route[0].route
-        .filter(point => Array.isArray(point) && point.length >= 2)
-        .map(point => [point[0], point[1]]); // Convert [lat, lon] to Leaflet-friendly format
-
-      setOptimizedRoute({ path: latLngPath });
-
-      // Update form fields with route details
-      const { eta, distance_km } = response.optimized_route[0];
-      form.setValue("duration", eta || "N/A");
-      form.setValue("distance", `${distance_km} km`);
-    } else {
-      console.warn("No route path found in optimization response:", response);
-      setOptimizedRoute(null);
+    if (!selectedParcel) {
+      toast({
+        title: "No Parcel Selected",
+        description: "Please select a parcel to optimize a route.",
+        variant: "destructive",
+      });
+      return;
     }
+    setIsOptimizing(true);
+    try {
+      const start = selectedParcel.origin;
+      const end = selectedParcel.destination;
+      const payload = {
+        start: origin,
+        end: destination,
+        intermediate_post_offices: intermediateStops,
+      };
+      console.log("Optimizing route with payload:", payload);
+      const response = await apiRequest("POST", "/api/route/optimized", payload);
+      if (response.error) throw new Error(response.error);
 
-    // Set transport mode based on optimization mode
-    form.setValue(
-      "transportMode",
-      optimizationMode === "speed"
-        ? "air"
-        : optimizationMode === "cost"
-          ? "road"
-          : "rail"
-    );
+      // ✅ CORRECTED PARSING LOGIC HERE
+      if (response.optimized_route && Array.isArray(response.optimized_route)) {
+        const latLngPath = response.optimized_route
+          .filter(point => Array.isArray(point) && point.length >= 2)
+          .map(point => [point[0], point[1]]); // Convert [lat, lon] to Leaflet-friendly format
 
-    toast({
-      title: "Route Optimized",
-      description: `Route optimized for ${optimizationMode} using real-time data.`,
-    });
-  } catch (error: any) {
-    toast({
-      title: "Optimization Failed",
-      description: error.message || "An unexpected error occurred during optimization.",
-      variant: "destructive",
-    });
-    setOptimizedRoute(null);
-  } finally {
-    setIsOptimizing(false);
-  }
-  
-};
+        setOptimizedRoute({ path: latLngPath });
+        // Update form fields with route details
+        const eta = "N/A"; // Backend doesn't provide eta in current response
+        const distance_km = response.optimized_route.length * 100; // Placeholder calculation
+        form.setValue("duration", eta);
+        form.setValue("distance", `${distance_km.toFixed(2)} km`);
+      } else {
+        console.warn("No route path found in optimization response:", response);
+        setOptimizedRoute(null);
+      }
+
+      // Set transport mode based on optimization mode
+      form.setValue(
+        "transportMode",
+        optimizationMode === "speed"
+          ? "air"
+          : optimizationMode === "cost"
+            ? "road"
+            : "rail"
+      );
+      toast({
+        title: "Route Optimized",
+        description: `Route optimized for ${optimizationMode} using real-time data.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Optimization Failed",
+        description: error.message || "An unexpected error occurred during optimization.",
+        variant: "destructive",
+      });
+      setOptimizedRoute(null);
+    } finally {
+      setIsOptimizing(false);
+    }
+  };
 
   // Toggles the sidebar open/close state
   const toggleSidebar = () => {
@@ -561,13 +540,11 @@ export default function RouteOptimization() {
         leafletMapRef.current.invalidateSize();
       }
     };
-
     // Add event listener for tab changes
     const tabsElement = document.querySelector("[data-tabs]");
     if (tabsElement) {
       tabsElement.addEventListener("tabChange", (event: any) => handleTabChange(event.detail));
     }
-
     // Cleanup event listener on unmount
     return () => {
       if (tabsElement) {
@@ -576,7 +553,7 @@ export default function RouteOptimization() {
     };
   }, []);
 
-  return (
+ return (
     <div className="min-h-screen flex">
       {sidebarOpen && <Sidebar className="hidden md:block" />}
 

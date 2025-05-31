@@ -25,7 +25,6 @@ app.get("/api/geocode", async (req, res) => {
   const { location } = req.query;
   if (!location) return res.status(400).json({ error: "Missing location" });
   console.log(`Geocoding location: ${location}`);
-  // Call the FastAPI backend (adjust the port as needed)
   const fastApiUrl = `http://localhost:8000/geocode?location=${encodeURIComponent(location as string)}`;
   try {
     const response = await fetch(fastApiUrl);
@@ -35,7 +34,121 @@ app.get("/api/geocode", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch from map backend" });
   }
 });
-  
+
+  // Proxy for /api/traffic/incidents
+  app.get("/api/traffic/incidents", async (req, res) => {
+    const { location, incident_type } = req.query;
+    if (!location) return res.status(400).json({ error: "Missing location" });
+    let fastApiUrl = `http://localhost:8000/traffic/incidents?location=${encodeURIComponent(location as string)}`;
+    if (incident_type) fastApiUrl += `&incident_type=${encodeURIComponent(incident_type as string)}`;
+    try {
+      const response = await fetch(fastApiUrl);
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
+  // Proxy for /api/traffic/flow
+  app.get("/api/traffic/flow", async (req, res) => {
+    const { location } = req.query;
+    if (!location) return res.status(400).json({ error: "Missing location" });
+    const fastApiUrl = `http://localhost:8000/traffic/flow?location=${encodeURIComponent(location as string)}`;
+    try {
+      const response = await fetch(fastApiUrl);
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
+  // Proxy for /api/weather
+  app.get("/api/weather", async (req, res) => {
+    const { location } = req.query;
+    if (!location) return res.status(400).json({ error: "Missing location" });
+    const fastApiUrl = `http://localhost:8000/weather?location=${encodeURIComponent(location as string)}`;
+    try {
+      const response = await fetch(fastApiUrl);
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
+  // Proxy for /api/transport/schedules
+  app.get("/api/transport/schedules", async (req, res) => {
+    const fastApiUrl = `http://localhost:8000/transport/schedules`;
+    try {
+      const response = await fetch(fastApiUrl);
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
+  // Proxy for /api/route/optimized
+  app.post("/api/route/optimized", async (req, res) => {
+    const { start, end } = req.query;
+    if (!start || !end) return res.status(400).json({ error: "Missing start or end" + req.query });
+    console.log(`Optimizing route from ${start} to ${end}`+req.query);
+    const fastApiUrl = `http://localhost:8000/route/optimized?start=${encodeURIComponent(start as string)}&end=${encodeURIComponent(end as string)}`;
+    try {
+      const response = await fetch(fastApiUrl);
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
+  // Proxy for /api/all-data
+  app.get("/api/all-data", async (req, res) => {
+    const { location } = req.query;
+    if (!location) return res.status(400).json({ error: "Missing location" });
+    const fastApiUrl = `http://localhost:8000/all-data?location=${encodeURIComponent(location as string)}`;
+    try {
+      const response = await fetch(fastApiUrl);
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
+  // Proxy for /api/weather/coords
+  app.get("/api/weather/coords", async (req, res) => {
+    const { lat, lon } = req.query;
+    if (!lat || !lon) return res.status(400).json({ error: "Missing lat or lon" });
+    const fastApiUrl = `http://localhost:8000/weather/coords?lat=${encodeURIComponent(lat as string)}&lon=${encodeURIComponent(lon as string)}`;
+    try {
+      const response = await fetch(fastApiUrl);
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
+  // Proxy for /api/route/dynamic (POST)
+  app.post("/api/route/dynamic", async (req, res) => {
+    const fastApiUrl = `http://localhost:8000/route/dynamic`;
+    try {
+      const response = await fetch(fastApiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req.body),
+      });
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
   // ============= PARCELS ==================
   
   // Get all parcels (admin/staff only)

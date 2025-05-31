@@ -89,7 +89,7 @@ def weather_coords(lat: float, lon: float):
     return fetch_weather_data(lat, lon)
 
 # ✅ NEW: Dynamic Recalibrated Route with Real-Time Data
-@app.post("/route/dynamic")
+@app.post("/api/route/optimized")
 def dynamic_route(request: DynamicRouteRequest):
     try:
         full_route = [request.origin] + request.intermediate_post_offices + [request.destination]
