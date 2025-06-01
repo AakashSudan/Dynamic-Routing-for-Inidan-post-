@@ -2,6 +2,7 @@
 backend/backend/
 map_venv/
 __pycache__/
+/generated
 
 # Logs
 logs
