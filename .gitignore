@@ -147,3 +147,5 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+/generated/prisma
