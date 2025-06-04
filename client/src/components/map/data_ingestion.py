@@ -10,19 +10,20 @@ WEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 
 def geocode_location(location_name):
-    base_url = "https://atlas.microsoft.com/search/address/json"
+    base_url = "https://nominatim.openstreetmap.org/search"
     params = {
-        "api-version": "1.0",
-        "query": location_name,
-        "subscription-key": AZURE_MAPS_KEY
+        "q": location_name,
+        "format": "json",
+        "limit": 1
     }
     try:
-        response = requests.get(base_url, params=params)
+        response = requests.get(base_url, params=params, headers={"User-Agent": "YourAppName/1.0"})
         response.raise_for_status()
         data = response.json()
-        if data["results"]:
-            position = data["results"][0]["position"]
-            return position["lat"], position["lon"]
+        if data and len(data) > 0:
+            lat = float(data[0]["lat"])
+            lon = float(data[0]["lon"])
+            return lat, lon
         else:
             raise ValueError(f"No results found for {location_name}")
     except Exception as e:
