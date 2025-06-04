@@ -88,6 +88,7 @@ export default function RouteOptimization() {
   const [weatherData, setWeatherData] = useState<Record<string, any>>({});
   const [trafficIncidents, setTrafficIncidents] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("map"); // Track the active tab
+  const [weatherLocation, setWeatherLocation] = useState<string | null>(null); // New state for weather location
 
   // Refs for Leaflet map integration
   const mapRef = useRef<HTMLDivElement>(null);
@@ -250,12 +251,12 @@ export default function RouteOptimization() {
         ];
         const weatherResults: Record<string, any> = {};
         for (const location of locations) {
-          // Fetch weather via GET without a request body (append query param)
-          const response = await apiRequest(
+          const res = await apiRequest(
             "GET",
             `/api/weather?location=${encodeURIComponent(location)}`
           );
-          // Store weather data if successful and coordinates are available
+          const response = await res.json();
+          console.log("Weather response for", location, ":", response);
           if (!response.error && response.lat && response.lon) {
             weatherResults[location] = response;
           }
@@ -277,11 +278,10 @@ export default function RouteOptimization() {
     const fetchTraffic = async () => {
       try {
         // Geocode origin and destination to get coordinates for bounding box
-        const originResponse = await apiRequest("GET", `/api/geocode?location=${encodeURIComponent(selectedParcel.origin)}`);
-        const destResponse = await apiRequest("GET",
-          `/api/geocode?location=${encodeURIComponent(selectedParcel.destination)}`
-        );
-        // Log responses for debugging
+        const originRes = await apiRequest("GET", `/api/geocode?location=${encodeURIComponent(selectedParcel.origin)}`);
+        const destRes = await apiRequest("GET", `/api/geocode?location=${encodeURIComponent(selectedParcel.destination)}`);
+        const originResponse = await originRes.json();
+        const destResponse = await destRes.json();
         console.log("Origin geocode response:", originResponse);
         console.log("Destination geocode response:", destResponse);
         if (!originResponse.lat || !originResponse.lon || !destResponse.lat || !destResponse.lon) {
@@ -294,10 +294,11 @@ export default function RouteOptimization() {
           [destResponse.lat, destResponse.lon],
         ]).join(",");
         // Fetch traffic incidents within the bounding box (using origin as a proxy for location param)
-        const incidentResponse = await apiRequest(
+        const incidentRes = await apiRequest(
           "GET",
           `/traffic/incidents?location=${encodeURIComponent(selectedParcel.origin)}`
         );
+        const incidentResponse = await incidentRes.json();
         if (!incidentResponse.error && Array.isArray(incidentResponse)) {
           setTrafficIncidents(incidentResponse);
         } else {
@@ -775,7 +776,34 @@ useEffect(() => {
                         </div>
 
                         <div className="space-y-2">
-                          <h4 className="text-sm font-medium">Current Conditions:</h4>
+                          <div className="flex items-center mb-1">
+                            <h4 className="text-sm font-medium mr-2">Current Conditions:</h4>
+                            {/* Weather Location Selector */}
+                            {selectedParcel && (
+                              <Select
+                                value={weatherLocation || selectedParcel.origin}
+                                onValueChange={setWeatherLocation}
+                              >
+                                <SelectTrigger className="w-48 ml-2">
+                                  <SelectValue placeholder="Select location" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value={selectedParcel.origin}>Origin: {selectedParcel.origin}</SelectItem>
+                                  {intermediateStops.map((stop, idx) => (
+                                    <SelectItem key={stop} value={stop}>Stop {idx + 1}: {stop}</SelectItem>
+                                  ))}
+                                  <SelectItem value={selectedParcel.destination}>Destination: {selectedParcel.destination}</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            )}
+                          </div>
+                          {/* Loading overlay for weather/traffic */}
+                          {((isParcelsLoading || isRoutesLoading || !weatherData[(weatherLocation || selectedParcel?.origin) ?? ''])) && (
+                            <div className="flex items-center space-x-2 text-slate-500 mb-2">
+                              <LoaderIcon className="h-4 w-4 animate-spin" />
+                              <span>Loading weather/traffic data...</span>
+                            </div>
+                          )}
                           <div className="grid grid-cols-2 gap-2">
                             {/* Weather Display */}
                             <div className="bg-slate-50 p-3 rounded flex items-center">
@@ -783,7 +811,7 @@ useEffect(() => {
                               <div>
                                 <p className="text-xs text-slate-500">Weather</p>
                                 <p className="text-sm font-medium">
-                                  {selectedParcel && weatherData[selectedParcel.origin]?.weather || "N/A"}
+                                  {selectedParcel && weatherData[weatherLocation || selectedParcel.origin]?.weather || "N/A"}
                                 </p>
                               </div>
                             </div>
@@ -793,8 +821,9 @@ useEffect(() => {
                               <div>
                                 <p className="text-xs text-slate-500">Temperature</p>
                                 <p className="text-sm font-medium">
-                                  {selectedParcel && weatherData[selectedParcel.origin]?.temperature ?
-                                    `${weatherData[selectedParcel.origin].temperature}°F` : "N/A"}
+                                  {selectedParcel && weatherData[weatherLocation || selectedParcel.origin]?.temperature !== undefined
+                                    ? `${weatherData[weatherLocation || selectedParcel.origin].temperature}°C`
+                                    : "N/A"}
                                 </p>
                               </div>
                             </div>
@@ -804,8 +833,21 @@ useEffect(() => {
                               <div>
                                 <p className="text-xs text-slate-500">Wind</p>
                                 <p className="text-sm font-medium">
-                                  {selectedParcel && weatherData[selectedParcel.origin]?.windSpeed ?
-                                    `${weatherData[selectedParcel.origin].windSpeed} mph ${weatherData[selectedParcel.origin]?.windDirection || ''}` : "N/A"}
+                                  {selectedParcel && weatherData[weatherLocation || selectedParcel.origin]?.windSpeed !== undefined
+                                    ? `${weatherData[weatherLocation || selectedParcel.origin].windSpeed} km/h ${weatherData[weatherLocation || selectedParcel.origin]?.windDirection || ''}`
+                                    : "N/A"}
+                                </p>
+                              </div>
+                            </div>
+                            {/* Risk Display */}
+                            <div className="bg-slate-50 p-3 rounded flex items-center">
+                              <AlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
+                              <div>
+                                <p className="text-xs text-slate-500">Weather Risk</p>
+                                <p className="text-sm font-medium">
+                                  {selectedParcel && weatherData[weatherLocation || selectedParcel.origin]?.risk
+                                    ? weatherData[weatherLocation || selectedParcel.origin].risk.charAt(0).toUpperCase() + weatherData[weatherLocation || selectedParcel.origin].risk.slice(1)
+                                    : "N/A"}
                                 </p>
                               </div>
                             </div>
