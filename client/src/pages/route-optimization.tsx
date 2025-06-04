@@ -67,6 +67,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 // Define form schema for route creation
 const routeFormSchema = z.object({
@@ -450,10 +453,21 @@ export default function RouteOptimization() {
 useEffect(() => {
   if (leafletMapRef.current) {
     // Clear previous layers
-    leafletMapRef.current.eachLayer(layer => {
+    leafletMapRef.current.eachLayer((layer: L.Layer) => {
       if ((layer as L.Polyline).options?.className === "optimized-route") {
         leafletMapRef.current!.removeLayer(layer);
       }
+    });
+
+    // Create a custom icon for start/end markers
+    const defaultIcon = L.icon({
+      iconUrl: markerIcon,
+      iconRetinaUrl: markerIcon2x,
+      shadowUrl: markerShadow,
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41],
     });
 
     // Draw optimized route
@@ -464,12 +478,12 @@ useEffect(() => {
         className: "optimized-route",
       }).addTo(leafletMapRef.current);
 
-      // Add markers
-      L.marker(optimizedRoute.path[0])
+      // Add start and end markers with custom icon
+      L.marker(optimizedRoute.path[0], { icon: defaultIcon })
         .addTo(leafletMapRef.current)
         .bindPopup("Start");
 
-      L.marker(optimizedRoute.path[optimizedRoute.path.length - 1])
+      L.marker(optimizedRoute.path[optimizedRoute.path.length - 1], { icon: defaultIcon })
         .addTo(leafletMapRef.current)
         .bindPopup("End");
 
