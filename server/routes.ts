@@ -161,12 +161,11 @@ app.get("/api/geocode", async (req, res) => {
       const parcels = await storage.listParcelsByUserId(user.id);
       return res.json(parcels);
     }
-    
-    // Admin and staff can see all parcels
+    // Admin and staff can see all parcels (with user info)
     const parcels = await storage.listParcels();
     res.json(parcels);
   });
-  
+
   // Get parcel by ID
   app.get("/api/parcels/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -185,10 +184,9 @@ app.get("/api/geocode", async (req, res) => {
     if (user.role === "sender" && parcel.userId !== user.id) {
       return res.sendStatus(403);
     }
-    
     res.json(parcel);
   });
-  
+
   // Get parcel by tracking number
   app.get("/api/parcels/tracking/:trackingNumber", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -204,8 +202,22 @@ app.get("/api/geocode", async (req, res) => {
     if (user.role === "sender" && parcel.userId !== user.id) {
       return res.sendStatus(403);
     }
-    
     res.json(parcel);
+  });
+
+  // Delete a parcel (admin/staff only)
+  app.delete("/api/parcels/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = req.user!;
+    if (user.role === "sender") return res.sendStatus(403);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid parcel ID" });
+    try {
+      await storage.deleteParcel(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(400).json({ message: "Failed to delete parcel" });
+    }
   });
   
   // Create a new parcel
@@ -630,6 +642,31 @@ app.get("/api/geocode", async (req, res) => {
     }
     
     res.json(stats);
+  });
+
+  // Update system stats (admin/staff only)
+  app.patch("/api/stats", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = req.user!;
+    if (user.role === "sender") return res.sendStatus(403);
+    try {
+      const updated = await storage.updateStats(req.body);
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update stats" });
+    }
+  });
+
+  // ============= USERS ==================
+  // Get all users (admin/staff only)
+  app.get("/api/users", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = req.user!;
+    if (user.role === "sender") return res.sendStatus(403);
+    const users = await storage.listUsers();
+    // Don't expose passwords
+    const usersWithoutPasswords = users.map(({ password, ...u }) => u);
+    res.json(usersWithoutPasswords);
   });
 
   // Create HTTP server
