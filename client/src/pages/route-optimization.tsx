@@ -509,10 +509,12 @@ useEffect(() => {
     try {
       const origin = selectedParcel.origin;
       const destination = selectedParcel.destination;
+      // Include optimization mode in payload to prioritize speed, cost, or carbon
       const payload = {
         start: origin,
         end: destination,
         intermediate_post_offices: intermediateStops,
+        mode: optimizationMode,
       };
       // console.log("Optimizing route with payload:", payload);
       const raw = await apiRequest("POST", "/api/route/optimized", payload);
@@ -527,11 +529,14 @@ useEffect(() => {
 
         setOptimizedRoute({ path: latLngPath });
         setActiveTab("map");
-        // Update form fields with route details
-        const eta = "N/A"; // Backend doesn't provide eta in current response
-        const distance_km = response.route.length * 100; // Placeholder calculation
-        form.setValue("duration", eta);
-        form.setValue("distance", `${distance_km.toFixed(2)} km`);
+        // Update form fields with route details from backend
+        const etaValue = response.eta ?? "N/A";
+        const distanceValue = response.distance;
+        const distanceStr = typeof distanceValue === 'number'
+          ? `${distanceValue.toFixed(2)} km`
+          : "N/A";
+        form.setValue("duration", etaValue);
+        form.setValue("distance", distanceStr);
       } else {
         console.warn("No route path found in optimization response:", response);
         setOptimizedRoute(null);
@@ -879,7 +884,10 @@ useEffect(() => {
                           </div>
                         </div>
 
-                        {/* Optimize Route Button */}
+
+
+                      {}
+
                         <Button
                           onClick={handleOptimize}
                           disabled={!selectedParcel || isOptimizing}
