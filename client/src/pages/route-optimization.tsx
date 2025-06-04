@@ -501,12 +501,13 @@ useEffect(() => {
         intermediate_post_offices: intermediateStops,
       };
       // console.log("Optimizing route with payload:", payload);
-      const response = await apiRequest("POST", "/api/route/optimized", payload);
+      const raw = await apiRequest("POST", "/api/route/optimized", payload);
+      const response = await raw.json();          
+      console.log("Optim response JSON:", response);
       if (response.error) throw new Error(response.error);
 
-      // ✅ CORRECTED PARSING LOGIC HERE
-      if (response.optimized_route && Array.isArray(response.optimized_route)) {
-        const latLngPath = response.optimized_route
+      if (response.route && Array.isArray(response.route)) {
+        const latLngPath = response.route
           .filter(point => Array.isArray(point) && point.length >= 2)
           .map(point => [point[0], point[1]]); // Convert [lat, lon] to Leaflet-friendly format
 
@@ -514,7 +515,7 @@ useEffect(() => {
         setActiveTab("map");
         // Update form fields with route details
         const eta = "N/A"; // Backend doesn't provide eta in current response
-        const distance_km = response.optimized_route.length * 100; // Placeholder calculation
+        const distance_km = response.route.length * 100; // Placeholder calculation
         form.setValue("duration", eta);
         form.setValue("distance", `${distance_km.toFixed(2)} km`);
       } else {

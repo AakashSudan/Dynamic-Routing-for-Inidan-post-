@@ -66,7 +66,6 @@ app.get("/api/geocode", async (req, res) => {
 
   // Proxy for /api/weather
   app.get("/api/weather", async (req, res) => {
-    console.log("api: weather endpoint hit", req.query);
     const { location } = req.query;
     if (!location) return res.status(400).json({ error: "Missing location" });
     const fastApiUrl = `http://localhost:8000/weather?location=${encodeURIComponent(location as string)}`;
