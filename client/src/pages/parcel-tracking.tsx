@@ -107,6 +107,20 @@ export default function ParcelTracking() {
   });
 
 
+  // Send update mutation
+  const sendUpdateMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("POST", `/api/parcels/${id}/send-update`, {});
+    },
+    onSuccess: () => {
+      toast({ title: "Update Sent", description: "The sender has been notified by email." });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to Send Update", description: error.message, variant: "destructive" });
+    },
+  });
+
+
   // Filter parcels based on search term
   const filteredParcels = parcels?.filter(
     (parcel) => 
@@ -498,9 +512,9 @@ export default function ParcelTracking() {
                           <QrCode className="mr-2 h-4 w-4" />
                           Generate QR
                         </Button>
-                        <Button className="flex-1">
+                        <Button className="flex-1" onClick={() => selectedParcel && sendUpdateMutation.mutate(selectedParcel.id)} disabled={!selectedParcel || sendUpdateMutation.isPending}>
                           <Send className="mr-2 h-4 w-4" />
-                          Send Update
+                          {sendUpdateMutation.isPending ? "Sending..." : "Send Update"}
                         </Button>
                       </div>
                     </TabsContent>

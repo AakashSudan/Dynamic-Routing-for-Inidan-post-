@@ -12,6 +12,7 @@ import {
 import { z } from "zod";
 import { nanoid } from "nanoid";
 import fetch from "node-fetch";
+import { sendEmail } from "./updates";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
@@ -249,31 +250,61 @@ app.get("/api/geocode", async (req, res) => {
   // Update a parcel
   app.patch("/api/parcels/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid parcel ID" });
     }
-    
     const parcel = await storage.getParcel(id);
     if (!parcel) {
       return res.status(404).json({ message: "Parcel not found" });
     }
-    
     const user = req.user!;
     // Only admin/staff can update parcels, or the sender of the parcel
     if (user.role === "sender" && parcel.userId !== user.id) {
       return res.sendStatus(403);
     }
-    
     try {
       const updatedParcel = await storage.updateParcel(id, req.body);
+      // If status changed, send email to sender
+      if (req.body.status && req.body.status !== parcel.status) {
+        const sender = parcel.user || (await storage.getUser(parcel.userId));
+        if (sender && sender.email) {
+          const subject = `Parcel status updated: ${updatedParcel.trackingNumber}`;
+          const text = `Your parcel status is now: ${req.body.status}`;
+          await sendEmail(sender.email, subject, text);
+        }
+      }
       res.json(updatedParcel);
     } catch (error) {
       res.status(400).json({ message: "Invalid parcel data" });
     }
   });
   
+  // Send update email to sender
+  app.post("/api/parcels/:id/send-update", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid parcel ID" });
+    const parcel = await storage.getParcel(id);
+    if (!parcel) return res.status(404).json({ message: "Parcel not found" });
+    // Only admin/staff or the sender can send update
+    const user = req.user!;
+    if (user.role === "sender" && parcel.userId !== user.id) return res.sendStatus(403);
+    // Get sender info
+    const sender = parcel.user;
+    if (!sender || !sender.email) return res.status(400).json({ message: "Sender email not found" });
+    // Compose email
+    const subject = `Update for your parcel (${parcel.trackingNumber})`;
+    const text = req.body?.message || `Your parcel status is: ${parcel.status}`;
+    try {
+      await sendEmail(sender.email, subject, text);
+      res.json({ message: "Update email sent" });
+    } catch (err) {
+      console.error("Failed to send email:", err);
+      res.status(500).json({ message: "Failed to send email" });
+    }
+  });
+
   // ============= ROUTES ==================
   
   // Get all routes (admin/staff only)
