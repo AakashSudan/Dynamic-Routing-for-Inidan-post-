@@ -93,10 +93,10 @@ app.get("/api/geocode", async (req, res) => {
 
   // Proxy for /api/route/optimized
   app.post("/api/route/optimized", async (req, res) => {
-    const { start, end } = req.body;
+    const { start, end, route_type } = req.body;
     // console.log(`Optimizing route from ${start} to ${end}`);
     if (!start || !end) return res.status(400).json({ error: "Missing start or end: " + req.body });
-    const fastApiUrl = `http://localhost:8000/route/optimized?start=${encodeURIComponent(start as string)}&end=${encodeURIComponent(end as string)}`;
+    const fastApiUrl = `http://localhost:8000/route/optimized?start=${encodeURIComponent(start as string)}&end=${encodeURIComponent(end as string)}&optimized_mode=${encodeURIComponent(route_type as string)}`;
     try {
       const response = await fetch(fastApiUrl);
       const data = await response.json();
@@ -307,6 +307,18 @@ app.get("/api/geocode", async (req, res) => {
 
   // ============= ROUTES ==================
   
+  app.get("/api/postoffices", async (req, res) => {
+  // If you want to restrict, add authentication checks here
+  // if (!req.isAuthenticated()) return res.sendStatus(401);
+
+  try {
+    const postOffices = await storage.listPostOffices();
+    res.json(postOffices);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch post offices" });
+  }
+});
+
   // Get all routes (admin/staff only)
   app.get("/api/routes", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);

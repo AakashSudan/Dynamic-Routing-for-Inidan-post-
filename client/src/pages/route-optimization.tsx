@@ -1,3 +1,4 @@
+import Papa from "papaparse"; // ← NEW IMPORT
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
 import { Header } from "@/components/layout/header";
@@ -9,7 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import L from "leaflet";
-import axios from "axios";  // For client-side geocoding via OpenStreetMap Nominatim
+import axios from "axios";
 import "leaflet/dist/leaflet.css";
 import {
   Card,
@@ -87,11 +88,16 @@ export default function RouteOptimization() {
   const [transportFilter, setTransportFilter] = useState<string>("all");
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [optimizedRoute, setOptimizedRoute] = useState<{ path: L.LatLngExpression[] } | null>(null);
-  const [intermediateStops, setIntermediateStops] = useState<string[]>([]); // For future intermediate stops
+  const [intermediateStops, setIntermediateStops] = useState<string[]>([]);
   const [weatherData, setWeatherData] = useState<Record<string, any>>({});
   const [trafficIncidents, setTrafficIncidents] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState("map"); // Track the active tab
-  const [weatherLocation, setWeatherLocation] = useState<string | null>(null); // New state for weather location
+  const [activeTab, setActiveTab] = useState("map");
+  const [weatherLocation, setWeatherLocation] = useState<string | null>(null);
+
+  // NEW: State for head post offices from backend
+  const [headPostOffices, setHeadPostOffices] = useState<
+    { id: number; city: string; officeName: string; pincode: string; latitude: number; longitude: number }[]
+  >([]);
 
   // Refs for Leaflet map integration
   const mapRef = useRef<HTMLDivElement>(null);
@@ -105,7 +111,7 @@ export default function RouteOptimization() {
   const geocodeCache = useRef<Record<string, [number, number]>>({});
   const geocode = async (place: string): Promise<[number, number]> => {
     if (geocodeCache.current[place]) return geocodeCache.current[place];
-    const resp = await axios.get("https://nominatim.openstreetmap.org/search",  {
+    const resp = await axios.get("https://nominatim.openstreetmap.org/search",   {
       params: { q: place, format: "json", limit: 1 }
     });
     if (!resp.data || resp.data.length === 0) {
@@ -143,13 +149,11 @@ export default function RouteOptimization() {
     mutationFn: (newRoute: Omit<Route, "id" | "active" | "weather" | "traffic">) =>
       apiRequest("POST", "/api/routes", newRoute),
     onSuccess: () => {
-      // Invalidate queries to refetch and update the routes table
       queryClient.invalidateQueries({ queryKey: ["/api/routes"] });
       toast({
         title: "Route Created",
         description: "The new route has been successfully added.",
       });
-      // Reset form and clear selected states after successful creation
       form.reset();
       setSelectedParcel(null);
       setOptimizedRoute(null);
@@ -168,8 +172,6 @@ export default function RouteOptimization() {
 
   /**
    * Handles the form submission for creating a new route.
-   * This function is called when the "Create Route" button is clicked.
-   * @param values The form values validated by Zod.
    */
   const onSubmit = async (values: z.infer<typeof routeFormSchema>) => {
     if (!selectedParcel) {
@@ -180,23 +182,19 @@ export default function RouteOptimization() {
       });
       return;
     }
-    // Convert optimized route path to the format expected by the backend schema
+
     const routePath = optimizedRoute?.path.map(([lat, lng]) => ({ lat, lng })) || [];
-    // Construct weather and traffic objects based on fetched data for the origin
-    // Note: You might want more sophisticated logic for aggregating weather/traffic
-    // across the entire route or for specific intermediate points.
     const weather = weatherData[selectedParcel.origin] ?
       { conditions: weatherData[selectedParcel.origin].weather, temperature: weatherData[selectedParcel.origin].temperature } : null;
-    const traffic = trafficIncidents.length > 0 ? { congestion: "moderate" } : null; // Simplified traffic status
+    const traffic = trafficIncidents.length > 0 ? { congestion: "moderate" } : null;
 
-    // Trigger the route creation mutation
     routeMutation.mutate({
       parcelId: values.parcelId,
       transportMode: values.transportMode,
       duration: values.duration,
       distance: values.distance,
       routePath: routePath,
-      active: true, // New routes are typically active
+      active: true,
       weather: weather,
       traffic: traffic,
     });
@@ -204,32 +202,27 @@ export default function RouteOptimization() {
 
   /**
    * Handles the selection of a parcel from the list.
-   * Sets the selected parcel state and clears previous optimization results.
-   * @param parcelId The ID of the selected parcel.
    */
   const handleParcelSelect = (parcelId: number) => {
     const parcel = parcels?.find((p) => p.id === parcelId);
     if (parcel) {
       setSelectedParcel(parcel);
-      form.setValue("parcelId", parcel.id); // Set parcelId in the form
-      setOptimizedRoute(null); // Clear any previously optimized route
-      setIntermediateStops([]); // Clear intermediate stops
-      setWeatherData({}); // Clear weather data
-      setTrafficIncidents([]); // Clear traffic incidents
+      form.setValue("parcelId", parcel.id);
+      setOptimizedRoute(null);
+      setIntermediateStops([]);
+      setWeatherData({});
+      setTrafficIncidents([]);
     }
   };
 
   /**
    * Generates a bounding box around a given path of LatLng points.
-   * This is used to fetch traffic incidents or weather data relevant to the route area.
-   * @param path An array of Leaflet LatLngExpression points.
-   * @returns An array representing the bounding box: [minLon, minLat, maxLon, maxLat].
    */
   function generateBBoxAroundPath(path: L.LatLngExpression[]) {
     const coords = path.map((p: any) => ({ lat: p[0], lon: p[1] }));
     const lats = coords.map(c => c.lat);
     const lons = coords.map(c => c.lon);
-    const delta = 0.5; // A small buffer for the bounding box
+    const delta = 0.5;
     return [
       Math.min(...lons) - delta,
       Math.min(...lats) - delta,
@@ -239,9 +232,7 @@ export default function RouteOptimization() {
   }
 
   /**
-   * Effect hook to fetch weather data for the selected parcel's origin, destination,
-   * and any intermediate stops.
-   * Runs whenever `selectedParcel` or `intermediateStops` change.
+   * Effect hook to fetch weather data for locations.
    */
   useEffect(() => {
     if (!selectedParcel) return;
@@ -259,7 +250,6 @@ export default function RouteOptimization() {
             `/api/weather?location=${encodeURIComponent(location)}`
           );
           const response = await res.json();
-          console.log("Weather response for", location, ":", response);
           if (!response.error && response.lat && response.lon) {
             weatherResults[location] = response;
           }
@@ -273,30 +263,24 @@ export default function RouteOptimization() {
   }, [selectedParcel, intermediateStops]);
 
   /**
-   * Effect hook to fetch traffic incidents along the route of the selected parcel.
-   * Runs whenever `selectedParcel` changes.
+   * Effect hook to fetch traffic incidents.
    */
   useEffect(() => {
     if (!selectedParcel) return;
     const fetchTraffic = async () => {
       try {
-        // Geocode origin and destination to get coordinates for bounding box
         const originRes = await apiRequest("GET", `/api/geocode?location=${encodeURIComponent(selectedParcel.origin)}`);
         const destRes = await apiRequest("GET", `/api/geocode?location=${encodeURIComponent(selectedParcel.destination)}`);
         const originResponse = await originRes.json();
         const destResponse = await destRes.json();
-        console.log("Origin geocode response:", originResponse);
-        console.log("Destination geocode response:", destResponse);
         if (!originResponse.lat || !originResponse.lon || !destResponse.lat || !destResponse.lon) {
           console.warn("Could not geocode origin or destination for traffic incidents.");
           return;
         }
-        // Generate a bounding box around the origin and destination
         const bbox = generateBBoxAroundPath([
           [originResponse.lat, originResponse.lon],
           [destResponse.lat, destResponse.lon],
         ]).join(",");
-        // Fetch traffic incidents within the bounding box (using origin as a proxy for location param)
         const incidentRes = await apiRequest(
           "GET",
           `/traffic/incidents?location=${encodeURIComponent(selectedParcel.origin)}`
@@ -306,7 +290,7 @@ export default function RouteOptimization() {
           setTrafficIncidents(incidentResponse);
         } else {
           console.warn("No traffic incidents found or error fetching:", incidentResponse.error);
-          setTrafficIncidents([]); // Clear incidents if there's an error or no data
+          setTrafficIncidents([]); 
         }
       } catch (error) {
         console.error("Error fetching traffic:", error);
@@ -317,20 +301,15 @@ export default function RouteOptimization() {
   }, [selectedParcel]);
 
   /**
-   * Effect hook to initialize the Leaflet map when the component mounts.
-   * Cleans up the map instance when the component unmounts.
+   * Initializes the Leaflet map.
    */
   useEffect(() => {
     if (mapRef.current && !leafletMapRef.current) {
-      // Initialize map centered on India with a zoom level
       leafletMapRef.current = L.map(mapRef.current).setView([20.5937, 78.9629], 5);
-      // Add OpenStreetMap tile layer
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",  {
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright  ">OpenStreetMap</a> contributors',
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",   {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>  contributors',
       }).addTo(leafletMapRef.current);
     }
-    // Cleanup function: remove map when component unmounts
     return () => {
       if (leafletMapRef.current) {
         leafletMapRef.current.remove();
@@ -342,7 +321,6 @@ export default function RouteOptimization() {
   // Recalculate map size when switching back to Map View
   useEffect(() => {
     if (activeTab === "map" && leafletMapRef.current) {
-      // Delay to allow tab content to render
       setTimeout(() => {
         leafletMapRef.current?.invalidateSize();
       }, 100);
@@ -350,116 +328,18 @@ export default function RouteOptimization() {
   }, [activeTab]);
 
   /**
-   * Effect hook to draw/update routes, markers, weather, and traffic incidents on the map.
-   * Runs whenever routes, transportFilter, optimizedRoute, weatherData, or trafficIncidents change.
+   * Draws optimized route and markers on the map.
    */
-
-
-  /* I COMMENED THIS BUT WE CAN CHANGE THIS LATER IF I NEED MULTIPLE INFO ON ROUTES
   useEffect(() => {
-    if (leafletMapRef.current) {
-      // Clear all existing polylines, markers, and custom layers
-      leafletMapRef.current.eachLayer(layer => {
-        if (
-          layer instanceof L.Polyline ||
-          layer instanceof L.Marker ||
-          (layer.options as any)?.className === "optimized-route" ||
-          (layer.options as any)?.className === "weather-marker" ||
-          (layer.options as any)?.className === "traffic-incident-marker"
-        ) {
-          leafletMapRef.current?.removeLayer(layer);
-        }
-      });
-      // Filter existing routes based on the selected transport mode
-      const filteredRoutes =
-        transportFilter === "all"
-          ? routes
-          : routes?.filter(route => route.transportMode === transportFilter);
-      // Draw existing routes on the map
-      filteredRoutes?.forEach(route => {
-        if (route.routePath && Array.isArray(route.routePath)) {
-          const points = route.routePath.map(point => [point.lat, point.lng]);
-          if (points.length >= 2) {
-            // Determine color based on transport mode
-            const color =
-              route.transportMode === "road"
-                ? "#22c55e" // Green for road
-                : route.transportMode === "rail"
-                  ? "#3b82f6" // Blue for rail
-                  : "#8b5cf6"; // Purple for air/multimodal
-            L.polyline(points as L.LatLngExpression[], {
-              color,
-              weight: 3,
-              opacity: 0.7,
-            }).addTo(leafletMapRef.current!);
-            // Add origin and destination markers for existing routes
-            L.marker(points[0]).addTo(leafletMapRef.current!).bindPopup(`Origin: ${route.parcelId}`);
-            L.marker(points[points.length - 1])
-              .addTo(leafletMapRef.current!)
-              .bindPopup(`Destination: ${route.parcelId}`);
-          }
-        }
-      });
-      // Draw the newly optimized route (if available)
-      if (optimizedRoute?.path && optimizedRoute.path.length >= 2) {
-        L.polyline(optimizedRoute.path, {
-          color: "#ef4444", // Red for optimized route
-          weight: 4,
-          className: "optimized-route",
-        }).addTo(leafletMapRef.current);
-        // Add start and end markers for the optimized route
-        L.marker(optimizedRoute.path[0]).addTo(leafletMapRef.current).bindPopup("Optimized Route Start");
-        L.marker(optimizedRoute.path[optimizedRoute.path.length - 1])
-          .addTo(leafletMapRef.current)
-          .bindPopup("Optimized Route End");
-        // Fit map bounds to the optimized route
-        leafletMapRef.current.fitBounds(L.latLngBounds(optimizedRoute.path as L.LatLng[]));
-      }
-      // Draw weather markers based on fetched weather data
-      Object.entries(weatherData).forEach(([location, data]) => {
-        const lat = data.lat;
-        const lon = data.lon;
-        // Choose icon based on weather conditions
-        const iconUrl = data.weather?.toLowerCase().includes("rain") || data.weather?.toLowerCase().includes("cloud")
-          ? "https://cdn-icons-png.flaticon.com/512/1163/1163661.png"  // Cloud/Rain icon
-          : "https://cdn-icons-png.flaticon.com/512/2698/2698194.png";  // Sun icon for clear weather
-        const icon = L.icon({
-          iconUrl,
-          iconSize: [25, 25], // Slightly larger for better visibility
-          iconAnchor: [12, 25], // Anchor at the bottom center of the icon
-          className: "weather-marker"
-        });
-        L.marker([lat, lon], { icon })
-          .addTo(leafletMapRef.current!)
-          .bindPopup(`<strong>${location}</strong><br>Weather: ${data.weather || 'N/A'}<br>Temp: ${data.temperature || 'N/A'}°F`);
-      });
-      // Draw traffic incidents on the map
-      trafficIncidents.forEach((incident) => {
-        const [lon, lat] = incident.location; // Assuming location is [lon, lat] from backend
-        // Use a generic alert icon for traffic incidents
-        const iconUrl = "https://cdn-icons-png.flaticon.com/512/1163/1163661.png";  // Generic traffic incident icon
-        const icon = L.icon({
-          iconUrl,
-          iconSize: [25, 25],
-          iconAnchor: [12, 25],
-          className: "traffic-incident-marker"
-        });
-        L.marker([lat, lon], { icon })
-          .addTo(leafletMapRef.current!)
-          .bindPopup(`<strong>Traffic Incident</strong><br>${incident.title || 'N/A'}<br>Type: ${incident.type || 'N/A'}`);
-      });
-    }
-  }, [routes, transportFilter, optimizedRoute, weatherData, trafficIncidents]);   */
-useEffect(() => {
-  if (leafletMapRef.current) {
-    // Clear previous layers
-    leafletMapRef.current.eachLayer((layer: L.Layer) => {
-      if ((layer as L.Polyline).options?.className === "optimized-route") {
-        leafletMapRef.current!.removeLayer(layer);
+    const map = leafletMapRef.current;
+    if (!map) return;
+    // Clear previous route and stop markers
+    map.eachLayer((layer: any) => {
+      const cls = (layer as any).options?.className;
+      if (cls === "optimized-route" || cls === "intermediate-stop") {
+        map.removeLayer(layer);
       }
     });
-
-    // Create a custom icon for start/end markers
     const defaultIcon = L.icon({
       iconUrl: markerIcon,
       iconRetinaUrl: markerIcon2x,
@@ -469,32 +349,60 @@ useEffect(() => {
       popupAnchor: [1, -34],
       shadowSize: [41, 41],
     });
-
-    // Draw optimized route
     if (optimizedRoute?.path && optimizedRoute.path.length >= 2) {
+      // Draw route line
       L.polyline(optimizedRoute.path, {
         color: "#ef4444",
         weight: 4,
         className: "optimized-route",
-      }).addTo(leafletMapRef.current);
-
-      // Add start and end markers with custom icon
-      L.marker(optimizedRoute.path[0], { icon: defaultIcon })
-        .addTo(leafletMapRef.current)
+      }).addTo(map);
+      // Start and End markers
+      L.marker(optimizedRoute.path[0], { icon: defaultIcon, className: "intermediate-stop" })
+        .addTo(map)
         .bindPopup("Start");
-
-      L.marker(optimizedRoute.path[optimizedRoute.path.length - 1], { icon: defaultIcon })
-        .addTo(leafletMapRef.current)
+      L.marker(optimizedRoute.path[optimizedRoute.path.length - 1], { icon: defaultIcon, className: "intermediate-stop" })
+        .addTo(map)
         .bindPopup("End");
-
-      // Auto-zoom to route
-      leafletMapRef.current.fitBounds(L.latLngBounds(optimizedRoute.path as L.LatLng[]));
+      // Intermediate stop markers
+      intermediateStops.forEach((name) => {
+        // match property name from CSV or backend
+        const office = headPostOffices.find(
+          (po) => po.officeName === name || po.OfficeName === name
+        );
+        if (office) {
+          const lat = office.latitude ?? office.Latitude;
+          const lng = office.longitude ?? office.Longitude;
+          // only add marker if valid coordinates
+          if (typeof lat === "number" && typeof lng === "number") {
+            L.marker([lat, lng], { icon: defaultIcon, className: "intermediate-stop" })
+              .addTo(map)
+              .bindPopup(`Stop: ${office.officeName || office.OfficeName}`);
+          }
+        }
+      });
+      // Fit map bounds to route
+      map.fitBounds(L.latLngBounds(optimizedRoute.path as L.LatLng[]));
     }
-  }
-}, [optimizedRoute]);
+  }, [optimizedRoute, intermediateStops, headPostOffices]);
+
+  /**
+   * Load all head post offices from backend
+   */
+    useEffect(() => {
+      fetch("/api/postoffices")
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to fetch post offices");
+          return res.json();
+        })
+        .then(data => setHeadPostOffices(data))
+        .catch(err => {
+          setHeadPostOffices([]);
+          toast({ title: "Error", description: "Could not load post offices.", variant: "destructive" });
+        });
+    }, []);
+
   /**
    * Handles the click event for the "Optimize Route" button.
-   * Triggers the backend optimization API call and updates UI states.
    */
   const handleOptimize = async () => {
     if (!selectedParcel) {
@@ -505,31 +413,35 @@ useEffect(() => {
       });
       return;
     }
+
+    const stops = headPostOffices.map((po) => po.OfficeName);
+    setIntermediateStops(stops);
+
     setIsOptimizing(true);
     try {
       const origin = selectedParcel.origin;
       const destination = selectedParcel.destination;
-      // Include optimization mode in payload to prioritize speed, cost, or carbon
       const payload = {
         start: origin,
         end: destination,
-        intermediate_post_offices: intermediateStops,
-        mode: optimizationMode,
+        intermediate_post_offices: stops,
+        // Set route_type based on optimization selection
+        route_type: optimizationMode === "speed"
+          ? "shortest"
+          : optimizationMode === "cost"
+            ? "fastest"
+            : "fastest",
+        travel_mode: optimizationMode === "rail" ? "rail" : "car",
       };
-      // console.log("Optimizing route with payload:", payload);
       const raw = await apiRequest("POST", "/api/route/optimized", payload);
       const response = await raw.json();          
-      console.log("Optim response JSON:", response);
       if (response.error) throw new Error(response.error);
-
       if (response.route && Array.isArray(response.route)) {
         const latLngPath = response.route
           .filter(point => Array.isArray(point) && point.length >= 2)
-          .map(point => [point[0], point[1]]); // Convert [lat, lon] to Leaflet-friendly format
-
+          .map(point => [point[0], point[1]]);
         setOptimizedRoute({ path: latLngPath });
         setActiveTab("map");
-        // Update form fields with route details from backend
         const etaValue = response.eta ?? "N/A";
         const distanceValue = response.distance;
         const distanceStr = typeof distanceValue === 'number'
@@ -538,15 +450,12 @@ useEffect(() => {
         form.setValue("duration", etaValue);
         form.setValue("distance", distanceStr);
       } else {
-        console.warn("No route path found in optimization response:", response);
         setOptimizedRoute(null);
       }
-
-      // Set transport mode based on optimization mode
       form.setValue(
         "transportMode",
         optimizationMode === "speed"
-          ? "air"
+          ? "rail"
           : optimizationMode === "cost"
             ? "road"
             : "rail"
@@ -567,7 +476,40 @@ useEffect(() => {
     }
   };
 
-  // Toggles the sidebar open/close state
+  /**
+   * Plot a map marker for each head post office
+   */
+  useEffect(() => {
+    const map = leafletMapRef.current;
+    if (!map) return;
+    // Remove previous office markers
+    map.eachLayer((layer: any) => {
+      if (layer.options?.className === "office-marker") {
+        map.removeLayer(layer);
+      }
+    });
+    // Red icon for post offices
+    const redIcon = L.icon({
+      iconUrl: markerIcon,
+      iconRetinaUrl: markerIcon2x,
+      shadowUrl: markerShadow,
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41],
+      className: "office-marker",
+    });
+    headPostOffices.forEach((office) => {
+      if (typeof office.latitude === 'number' && typeof office.longitude === 'number') {
+        L.marker([office.latitude, office.longitude], { icon: redIcon, className: "office-marker" })
+          .addTo(map)
+          .bindPopup(
+            `<strong>${office.officeName}</strong><br/>${office.city} - ${office.pincode}`
+          );
+      }
+    });
+  }, [headPostOffices]);
+
   const toggleSidebar = () => {
     setSidebarOpen(prev => !prev);
   };

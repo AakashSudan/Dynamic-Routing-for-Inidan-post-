@@ -28,6 +28,8 @@ class DynamicRouteRequest(BaseModel):
     origin: str
     destination: str
     intermediate_post_offices: List[str]
+    travel_mode: Optional[str] = "car"   # transit mode, e.g., 'car' or 'rail'
+    route_type: Optional[str] = "fastest"  # routeType: 'fastest' or 'shortest'
 
 @app.get("/geocode")
 def geocode(location: str):
@@ -63,8 +65,8 @@ def transport_schedules():
     return fetch_transport_schedules()
 
 @app.get("/route/optimized")
-def optimized_route(start: str, end: str):
-    result = get_optimized_route(start, end)
+def optimized_route(start: str, end: str, optimized_mode: Optional[str] = "shortest"):
+    result = get_optimized_route(start, end, optimized_mode)
     if "error" in result:
         return {"error": result["error"]}
     return result
@@ -105,8 +107,13 @@ def dynamic_route(request: DynamicRouteRequest):
             weather_data[location] = fetch_weather_data(lat, lon)
 
         # Calculate optimized dynamic route
+        # pass requested travel mode into routing engine
         optimized_route = calculate_dynamic_route(
-            full_route, traffic_data, weather_data
+            full_route,
+            traffic_data,
+            weather_data,
+            travel_mode=request.travel_mode,
+            route_type=request.route_type
         )
 
         return {

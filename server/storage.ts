@@ -1,4 +1,4 @@
-import { PrismaClient, User, Parcel, Route, Notification, Issue, NotificationPreference, Stats } from '../generated/prisma';
+import { PrismaClient, User, Parcel, Route, Notification, Issue, NotificationPreference, Stats, PostOffice } from '../generated/prisma';
 import type { Prisma } from '../generated/prisma';
 
 type InsertUser = Prisma.UserCreateInput;
@@ -35,6 +35,7 @@ export interface IStorage {
   updateRoute(id: number, route: Partial<InsertRoute>): Promise<Route | null>;
   listRoutes(): Promise<Route[]>;
   listActiveRoutes(): Promise<Route[]>;
+  listPostOffices(): Promise<PostOffice[]>; 
 
   // Notification operations
   getNotification(id: number): Promise<Notification | null>;
@@ -172,6 +173,9 @@ export class PrismaStorage implements IStorage {
   }
   async listActiveRoutes() {
     return prisma.route.findMany({ where: { active: true } });
+  }
+  async listPostOffices() {
+    return prisma.postOffice.findMany();
   }
 
   // Notification operations
