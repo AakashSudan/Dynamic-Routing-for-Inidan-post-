@@ -103,3 +103,16 @@ model Stats {
   mechanicalIssuesPercentage String
   updatedAt                 DateTime @default(now())
 }
+
+/// Stores geographic coordinates for head post offices
+model PostOffice {
+  id         Int     @id @default(autoincrement())
+  city       String
+  officeName String
+  pincode    String
+  latitude   Float
+  longitude  Float
+  // optionally track creation/update times
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}

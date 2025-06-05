@@ -11,13 +11,145 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { nanoid } from "nanoid";
+import fetch from "node-fetch";
+import { sendEmail } from "./updates";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication
   setupAuth(app);
 
   // API routes
-  
+  // ============= MAP ==================
+
+  // Proxy for /api/geocode
+app.get("/api/geocode", async (req, res) => {
+  const { location } = req.query;
+  if (!location) return res.status(400).json({ error: "Missing location" });
+  console.log(`Geocoding location: ${location}`);
+  const fastApiUrl = `http://localhost:8000/geocode?location=${encodeURIComponent(location as string)}`;
+  try {
+    const response = await fetch(fastApiUrl);
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch from map backend" });
+  }
+});
+
+  // Proxy for /api/traffic/incidents
+  app.get("/api/traffic/incidents", async (req, res) => {
+    const { location, incident_type } = req.query;
+    if (!location) return res.status(400).json({ error: "Missing location" });
+    let fastApiUrl = `http://localhost:8000/traffic/incidents?location=${encodeURIComponent(location as string)}`;
+    if (incident_type) fastApiUrl += `&incident_type=${encodeURIComponent(incident_type as string)}`;
+    try {
+      const response = await fetch(fastApiUrl);
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
+  // Proxy for /api/traffic/flow
+  app.get("/api/traffic/flow", async (req, res) => {
+    const { location } = req.query;
+    if (!location) return res.status(400).json({ error: "Missing location" });
+    const fastApiUrl = `http://localhost:8000/traffic/flow?location=${encodeURIComponent(location as string)}`;
+    try {
+      const response = await fetch(fastApiUrl);
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
+  // Proxy for /api/weather
+  app.get("/api/weather", async (req, res) => {
+    const { location } = req.query;
+    if (!location) return res.status(400).json({ error: "Missing location" });
+    const fastApiUrl = `http://localhost:8000/weather?location=${encodeURIComponent(location as string)}`;
+    try {
+      const response = await fetch(fastApiUrl);
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
+  // Proxy for /api/transport/schedules
+  app.get("/api/transport/schedules", async (req, res) => {
+    const fastApiUrl = `http://localhost:8000/transport/schedules`;
+    try {
+      const response = await fetch(fastApiUrl);
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
+  // Proxy for /api/route/optimized
+  app.post("/api/route/optimized", async (req, res) => {
+    const { start, end, route_type } = req.body;
+    // console.log(`Optimizing route from ${start} to ${end}`);
+    if (!start || !end) return res.status(400).json({ error: "Missing start or end: " + req.body });
+    const fastApiUrl = `http://localhost:8000/route/optimized?start=${encodeURIComponent(start as string)}&end=${encodeURIComponent(end as string)}&optimized_mode=${encodeURIComponent(route_type as string)}`;
+    try {
+      const response = await fetch(fastApiUrl);
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
+  // Proxy for /api/all-data
+  app.get("/api/all-data", async (req, res) => {
+    const { location } = req.query;
+    if (!location) return res.status(400).json({ error: "Missing location" });
+    const fastApiUrl = `http://localhost:8000/all-data?location=${encodeURIComponent(location as string)}`;
+    try {
+      const response = await fetch(fastApiUrl);
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
+  // Proxy for /api/weather/coords
+  app.get("/api/weather/coords", async (req, res) => {
+    const { lat, lon } = req.query;
+    if (!lat || !lon) return res.status(400).json({ error: "Missing lat or lon" });
+    const fastApiUrl = `http://localhost:8000/weather/coords?lat=${encodeURIComponent(lat as string)}&lon=${encodeURIComponent(lon as string)}`;
+    try {
+      const response = await fetch(fastApiUrl);
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
+  // Proxy for /api/route/dynamic (POST)
+  app.post("/api/route/dynamic", async (req, res) => {
+    const fastApiUrl = `http://localhost:8000/route/dynamic`;
+    try {
+      const response = await fetch(fastApiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(req.body),
+      });
+      const data = await response.json();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: "Failed to fetch from map backend" });
+    }
+  });
+
   // ============= PARCELS ==================
   
   // Get all parcels (admin/staff only)
@@ -30,12 +162,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const parcels = await storage.listParcelsByUserId(user.id);
       return res.json(parcels);
     }
-    
-    // Admin and staff can see all parcels
+    // Admin and staff can see all parcels (with user info)
     const parcels = await storage.listParcels();
     res.json(parcels);
   });
-  
+
   // Get parcel by ID
   app.get("/api/parcels/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -54,10 +185,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (user.role === "sender" && parcel.userId !== user.id) {
       return res.sendStatus(403);
     }
-    
     res.json(parcel);
   });
-  
+
   // Get parcel by tracking number
   app.get("/api/parcels/tracking/:trackingNumber", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -73,8 +203,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (user.role === "sender" && parcel.userId !== user.id) {
       return res.sendStatus(403);
     }
-    
     res.json(parcel);
+  });
+
+  // Delete a parcel (admin/staff only)
+  app.delete("/api/parcels/:id", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = req.user!;
+    if (user.role === "sender") return res.sendStatus(403);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid parcel ID" });
+    try {
+      await storage.deleteParcel(id);
+      res.status(204).send();
+    } catch (error) {
+      res.status(400).json({ message: "Failed to delete parcel" });
+    }
   });
   
   // Create a new parcel
@@ -106,33 +250,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Update a parcel
   app.patch("/api/parcels/:id", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
-    
     const id = parseInt(req.params.id);
     if (isNaN(id)) {
       return res.status(400).json({ message: "Invalid parcel ID" });
     }
-    
     const parcel = await storage.getParcel(id);
     if (!parcel) {
       return res.status(404).json({ message: "Parcel not found" });
     }
-    
     const user = req.user!;
     // Only admin/staff can update parcels, or the sender of the parcel
     if (user.role === "sender" && parcel.userId !== user.id) {
       return res.sendStatus(403);
     }
-    
     try {
       const updatedParcel = await storage.updateParcel(id, req.body);
+      // If status changed, send email to sender
+      if (req.body.status && req.body.status !== parcel.status) {
+        const sender = parcel.user || (await storage.getUser(parcel.userId));
+        if (sender && sender.email) {
+          const subject = `Parcel status updated: ${updatedParcel.trackingNumber}`;
+          const text = `Your parcel status is now: ${req.body.status}`;
+          await sendEmail(sender.email, subject, text);
+        }
+      }
       res.json(updatedParcel);
     } catch (error) {
       res.status(400).json({ message: "Invalid parcel data" });
     }
   });
   
+  // Send update email to sender
+  app.post("/api/parcels/:id/send-update", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ message: "Invalid parcel ID" });
+    const parcel = await storage.getParcel(id);
+    if (!parcel) return res.status(404).json({ message: "Parcel not found" });
+    // Only admin/staff or the sender can send update
+    const user = req.user!;
+    if (user.role === "sender" && parcel.userId !== user.id) return res.sendStatus(403);
+    // Get sender info
+    const sender = parcel.user;
+    if (!sender || !sender.email) return res.status(400).json({ message: "Sender email not found" });
+    // Compose email
+    const subject = `Update for your parcel (${parcel.trackingNumber})`;
+    const text = req.body?.message || `Your parcel status is: ${parcel.status}`;
+    try {
+      await sendEmail(sender.email, subject, text);
+      res.json({ message: "Update email sent" });
+    } catch (err) {
+      console.error("Failed to send email:", err);
+      res.status(500).json({ message: "Failed to send email" });
+    }
+  });
+
   // ============= ROUTES ==================
   
+  app.get("/api/postoffices", async (req, res) => {
+  // If you want to restrict, add authentication checks here
+  // if (!req.isAuthenticated()) return res.sendStatus(401);
+
+  try {
+    const postOffices = await storage.listPostOffices();
+    res.json(postOffices);
+  } catch (error) {
+    res.status(500).json({ message: "Failed to fetch post offices" });
+  }
+});
+
   // Get all routes (admin/staff only)
   app.get("/api/routes", async (req, res) => {
     if (!req.isAuthenticated()) return res.sendStatus(401);
@@ -499,6 +685,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     res.json(stats);
+  });
+
+  // Update system stats (admin/staff only)
+  app.patch("/api/stats", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = req.user!;
+    if (user.role === "sender") return res.sendStatus(403);
+    try {
+      const updated = await storage.updateStats(req.body);
+      res.json(updated);
+    } catch (error) {
+      res.status(400).json({ message: "Failed to update stats" });
+    }
+  });
+
+  // ============= USERS ==================
+  // Get all users (admin/staff only)
+  app.get("/api/users", async (req, res) => {
+    if (!req.isAuthenticated()) return res.sendStatus(401);
+    const user = req.user!;
+    if (user.role === "sender") return res.sendStatus(403);
+    const users = await storage.listUsers();
+    // Don't expose passwords
+    const usersWithoutPasswords = users.map(({ password, ...u }) => u);
+    res.json(usersWithoutPasswords);
   });
 
   // Create HTTP server

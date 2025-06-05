@@ -1,0 +1,29 @@
+City,OfficeName,Pincode,Circle,District,Division,Region,State,Latitude,Longitude
+Mumbai,Mumbai ,400001,Maharashtra,Mumbai,Mumbai G.P.O.,Mumbai,Maharashtra,19.0901376,72.8638223
+Delhi,Delhi ,110006,Delhi,North Delhi,Delhi GPO,Delhi,Delhi,28.7508152,77.1162765
+Hyderabad,Hyderabad ,500001,Andhra Pradesh,Hyderabad,Hyderabad GPO,Hyderabad City,Telangana,17.3605890,78.4740613
+Ahmedabad,Ahmedabad ,380001,Gujarat,Ahmedabad,Ahmedabad GPO,Ahmedabad HQ,Gujarat,23.0215374,72.5800568
+Chennai,Chennai ,600001,Tamilnadu,Chennai,Chennai GPO,Chennai Region,Tamil Nadu,13.0836939,80.2701860
+Lucknow,Lucknow ,226001,Uttar Pradesh,Lucknow,Lucknow GPO,Lucknow  HQ,Uttar Pradesh,26.8381000,80.9346001
+Jaipur,Jaipur ,302001,Rajasthan,Jaipur,Jaipur City,Jaipur HQ,Rajasthan,26.9154576,75.8189817
+Bhopal,Bhopal ,462001,Madhya Pradesh,Bhopal,Bhopal,Bhopal HQ,Madhya Pradesh,23.2584857,77.4019890
+Chandigarh,Chandigarh ,160017,Punjab,Chandigarh,Chandigarh,Chandigarh HQ,Chandigarh,30.7334421,76.7797143
+Bhubaneswar,Bhubaneswar ,751001,Odisha,Khorda,Bhubaneswar,Bhubaneswar HQ,Odisha,20.2480757,85.7956937
+Patna,Bhawanipatna,766001,Odisha,Kalahandi,Kalahandi,Berhampur,Odisha,19.9104952,83.1678321
+Ranchi,Ranchi ,834001,Jharkhand,Ranchi,Ranchi,Ranchi,Jharkhand,23.3700501,85.3250387
+Raipur,Raipur,492001,Chattisgarh,Raipur,Raipur,Raipur,Chattisgarh,21.2380912,81.6336993
+Guwahati,Guwahati ,781001,Assam,Kamrup,Guwahati,Guwahati HQ,Assam,26.1805978,91.7539430
+Dehradun,Dehradun ,248001,Uttarakhand,Dehradun,Dehradun,Dehradun,Uttarakhand,30.3255646,78.0436813
+Imphal,Imphal,795001,North Eastern,Imphal West,Manipur,North Eastern,Manipur,24.7991162,93.9364419
+Shillong,Shillong ,793001,North Eastern,East Khasi Hills,Meghalaya,Shillong HQ,Meghalaya,25.5760446,91.8825282
+Aizawl,Aizawl,796001,North Eastern,Aizawl,Mizoram,North Eastern,Mizoram,23.7433532,92.7382756
+Kohima,Kohima,797001,North Eastern,Kohima,Nagaland,North Eastern,Nagaland,25.6618755,94.1019156
+Agartala,Agartala,799001,North Eastern,West Tripura,Agartala,Shillong HQ,Tripura,23.8312377,91.2823821
+Itanagar,Itanagar,791111,North Eastern,Papum Pare,Arunachal Pradesh,Shillong HQ,Arunachal Pradesh,27.0979659,93.6237291
+Gangtok,Gangtok,737101,West Bengal,East Sikkim,Sikkim,North Bengal And Sikkim,Sikkim,27.3163644,88.5975829
+Panaji,Panaji,403001,Maharashtra,North Goa,Goa,Goa-Panaji,Goa,15.4989946,73.8282141
+Thiruvananthapuram,Thiruvananthapuram ,695001,Kerala,Thiruvananthapuram,Trivandrum North,Trivandrum  HQ,Kerala,8.4882267,76.9475510
+Port Blair,Port Blair,744101,West Bengal,South Andaman,A - N Islands,Calcutta HQ,Andaman & Nicobar,11.6645348,92.7390448
+Leh,Leh,194101,Jammukashmir,Leh,Leh,Srinagar HQ,Jammu & Kashmir,34.1634271,77.5843437
+Jammu,Jammu,180001,Jammukashmir,Jammu,Jammu,Srinagar HQ,Jammu & Kashmir,32.7185614,74.8580917
+Srinagar,Srinagar ,190001,Jammukashmir,Srinagar,Srinagar,Srinagar HQ,Jammu & Kashmir,34.0747444,74.8204443

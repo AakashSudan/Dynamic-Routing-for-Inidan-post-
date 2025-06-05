@@ -1,0 +1,5 @@
+leaflet # use npm install leaflet to install
+requests
+fastapi[all]
+uvicorn
+axios #npm install axios

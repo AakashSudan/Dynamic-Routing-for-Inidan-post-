@@ -3,7 +3,7 @@ import { Header } from "@/components/layout/header";
 import { Sidebar } from "@/components/layout/sidebar";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Parcel, InsertParcel } from "@shared/schema";
+import { Parcel, insertParcelSchema } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
 import {
@@ -87,6 +87,36 @@ export default function ParcelTracking() {
         description: error.message,
         variant: "destructive",
       });
+    },
+  });
+
+
+  // Add delete mutation
+  const deleteParcelMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/parcels/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/parcels"] });
+      toast({ title: "Parcel Deleted", description: "The parcel has been deleted." });
+      setSelectedParcelId(null);
+    },
+    onError: (error) => {
+      toast({ title: "Failed to Delete Parcel", description: error.message, variant: "destructive" });
+    },
+  });
+
+
+  // Send update mutation
+  const sendUpdateMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("POST", `/api/parcels/${id}/send-update`, {});
+    },
+    onSuccess: () => {
+      toast({ title: "Update Sent", description: "The sender has been notified by email." });
+    },
+    onError: (error) => {
+      toast({ title: "Failed to Send Update", description: error.message, variant: "destructive" });
     },
   });
 
@@ -216,51 +246,87 @@ export default function ParcelTracking() {
                 ) : filteredParcels.length > 0 ? (
                   <ScrollArea className="h-[400px]">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
-                      {filteredParcels.map((parcel) => (
-                        <Card 
-                          key={parcel.id} 
-                          className={`overflow-hidden cursor-pointer transition-all ${selectedParcelId === parcel.id ? 'ring-2 ring-primary' : ''}`}
-                          onClick={() => setSelectedParcelId(parcel.id)}
-                        >
-                          <div className={`h-2 ${parcel.status === 'delayed' ? 'bg-amber-500' : 'bg-primary'}`}></div>
-                          <CardContent className="p-4">
-                            <div className="flex justify-between items-start mb-2">
-                              <p className="font-mono font-medium">{parcel.trackingNumber}</p>
-                              <Badge className={getStatusBadgeClass(parcel.status)}>
-                                {parcel.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                              </Badge>
-                            </div>
-                            
-                            <div className="mb-2">
-                              <p className="text-sm text-slate-600 flex items-center">
-                                <span className="inline-block w-16">From:</span> 
-                                <span className="font-medium">{parcel.origin}</span>
-                              </p>
-                              <p className="text-sm text-slate-600 flex items-center">
-                                <span className="inline-block w-16">To:</span> 
-                                <span className="font-medium">{parcel.destination}</span>
-                              </p>
-                            </div>
-                            
-                            <div className="flex justify-between items-center mt-4">
-                              <div className="flex items-center text-xs text-slate-500">
-                                <ClockIcon className="h-3 w-3 mr-1" />
-                                {parcel.estimatedDelivery ? (
-                                  <span>ETA: {format(new Date(parcel.estimatedDelivery), "MMM d, yyyy")}</span>
-                                ) : (
-                                  <span>No ETA available</span>
-                                )}
+                      {filteredParcels.map((parcel) => {
+                        const parcelWithUser = parcel as Parcel & { user?: any };
+                        return (
+                          <Card 
+                            key={parcel.id} 
+                            className={`overflow-hidden cursor-pointer transition-all ${selectedParcelId === parcel.id ? 'ring-2 ring-primary' : ''}`}
+                            onClick={() => setSelectedParcelId(parcel.id)}
+                          >
+                            <div className={`h-2 ${parcel.status === 'delayed' ? 'bg-amber-500' : 'bg-primary'}`}></div>
+                            <CardContent className="p-4">
+                              <div className="flex justify-between items-start mb-2">
+                                <p className="font-mono font-medium">{parcel.trackingNumber}</p>
+                                <Badge className={getStatusBadgeClass(parcel.status)}>
+                                  {parcel.status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                                </Badge>
                               </div>
                               
-                              <div className="flex">
-                                {getTransportIcon(parcel.transportMode)}
+                              {/* Show sender info for admin/staff */}
+                              {/* {user?.role !== "sender" && parcelWithUser.user && (
+                                <div className="mb-2 text-xs text-slate-500">
+                                  <div>Sender:</div>
+                                  <div className="ml-2">
+                                    <div>Name: <span className="font-medium">{parcelWithUser.user.fullName}</span></div>
+                                    <div>Username: <span className="font-mono">{parcelWithUser.user.username}</span></div>
+                                    <div>Email: <span className="font-mono">{parcelWithUser.user.email}</span></div>
+                                    {parcelWithUser.user.phone && (
+                                      <div>Phone: <span className="font-mono">{parcelWithUser.user.phone}</span></div>
+                                    )}
+                                  </div>
+                                </div>
+                              )} */}
+                              
+                              <div className="mb-2">
+                                <p className="text-sm text-slate-600 flex items-center">
+                                  <span className="inline-block w-16">From:</span> 
+                                  <span className="font-medium">{parcel.origin}</span>
+                                </p>
+                                <p className="text-sm text-slate-600 flex items-center">
+                                  <span className="inline-block w-16">To:</span> 
+                                  <span className="font-medium">{parcel.destination}</span>
+                                </p>
                               </div>
-                            </div>
-                            
-                            <Progress className="mt-3" value={getParcelProgress(parcel.status)} />
-                          </CardContent>
-                        </Card>
-                      ))}
+                              
+                              <div className="flex justify-between items-center mt-4">
+                                <div className="flex items-center text-xs text-slate-500">
+                                  <ClockIcon className="h-3 w-3 mr-1" />
+                                  {parcel.estimatedDelivery ? (
+                                    <span>ETA: {format(new Date(parcel.estimatedDelivery), "MMM d, yyyy")}</span>
+                                  ) : (
+                                    <span>No ETA available</span>
+                                  )}
+                                </div>
+                                
+                                <div className="flex">
+                                  {getTransportIcon(parcel.transportMode)}
+                                </div>
+                              </div>
+                              
+                              <Progress className="mt-3" value={getParcelProgress(parcel.status)} />
+                              
+                              {/* Delete button for admin/staff */}
+                              {user?.role !== "sender" && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  className="mt-3 w-full"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    if (window.confirm("Are you sure you want to delete this parcel?")) {
+                                      deleteParcelMutation.mutate(parcel.id);
+                                    }
+                                  }}
+                                  disabled={deleteParcelMutation.isPending}
+                                >
+                                  Delete Parcel
+                                </Button>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
                     </div>
                   </ScrollArea>
                 ) : (
@@ -311,6 +377,21 @@ export default function ParcelTracking() {
                         </div>
                         
                         <div className="grid grid-cols-2 gap-4 text-sm">
+                          {/* Sender info for admin/staff */}
+                          {user?.role !== "sender" && selectedParcel.user && (
+                            <div className="mb-4 text-slate-500">
+                              <div>Sender Info</div>
+                                <div className="ml-2">
+                                  <div>Name: <span className="font-medium">{selectedParcel.user.fullName}</span></div>
+                                  <div>Username: <span className="font-mono">{selectedParcel.user.username}</span></div>
+                                  <div>Email: <span className="font-mono">{selectedParcel.user.email}</span></div>
+                                  {selectedParcel.user.phone && (
+                                    <div>Phone: <span className="font-mono">{selectedParcel.user.phone}</span></div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                            
                           <div>
                             <p className="text-slate-500">Tracking Number</p>
                             <p className="font-mono font-medium">{selectedParcel.trackingNumber}</p>
@@ -431,9 +512,9 @@ export default function ParcelTracking() {
                           <QrCode className="mr-2 h-4 w-4" />
                           Generate QR
                         </Button>
-                        <Button className="flex-1">
+                        <Button className="flex-1" onClick={() => selectedParcel && sendUpdateMutation.mutate(selectedParcel.id)} disabled={!selectedParcel || sendUpdateMutation.isPending}>
                           <Send className="mr-2 h-4 w-4" />
-                          Send Update
+                          {sendUpdateMutation.isPending ? "Sending..." : "Send Update"}
                         </Button>
                       </div>
                     </TabsContent>

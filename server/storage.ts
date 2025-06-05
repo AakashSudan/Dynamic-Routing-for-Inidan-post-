@@ -1,4 +1,4 @@
-import { PrismaClient, User, Parcel, Route, Notification, Issue, NotificationPreference, Stats } from '../generated/prisma';
+import { PrismaClient, User, Parcel, Route, Notification, Issue, NotificationPreference, Stats, PostOffice } from '../generated/prisma';
 import type { Prisma } from '../generated/prisma';
 
 type InsertUser = Prisma.UserCreateInput;
@@ -26,6 +26,7 @@ export interface IStorage {
   updateParcel(id: number, parcel: Partial<InsertParcel>): Promise<Parcel | null>;
   listParcels(): Promise<Parcel[]>;
   listParcelsByUserId(userId: number): Promise<Parcel[]>;
+  deleteParcel(id: number): Promise<Parcel | null>;
 
   // Route operations
   getRoute(id: number): Promise<Route | null>;
@@ -34,6 +35,7 @@ export interface IStorage {
   updateRoute(id: number, route: Partial<InsertRoute>): Promise<Route | null>;
   listRoutes(): Promise<Route[]>;
   listActiveRoutes(): Promise<Route[]>;
+  listPostOffices(): Promise<PostOffice[]>; 
 
   // Notification operations
   getNotification(id: number): Promise<Notification | null>;
@@ -124,10 +126,10 @@ export class PrismaStorage implements IStorage {
 
   // Parcel operations
   async getParcel(id: number) {
-    return prisma.parcel.findUnique({ where: { id } });
+    return prisma.parcel.findUnique({ where: { id }, include: { user: true } });
   }
   async getParcelByTrackingNumber(trackingNumber: string) {
-    return prisma.parcel.findUnique({ where: { trackingNumber } });
+    return prisma.parcel.findUnique({ where: { trackingNumber }, include: { user: true } });
   }
   async createParcel(parcel: InsertParcel) {
     const normalized = normalizeParcelPayload(parcel);
@@ -140,10 +142,13 @@ export class PrismaStorage implements IStorage {
     return prisma.parcel.update({ where: { id }, data: normalized });
   }
   async listParcels() {
-    return prisma.parcel.findMany();
+    return prisma.parcel.findMany({ include: { user: true } });
   }
   async listParcelsByUserId(userId: number) {
-    return prisma.parcel.findMany({ where: { userId } });
+    return prisma.parcel.findMany({ where: { userId }, include: { user: true } });
+  }
+  async deleteParcel(id: number) {
+    return prisma.parcel.delete({ where: { id } });
   }
 
   // Route operations
@@ -168,6 +173,9 @@ export class PrismaStorage implements IStorage {
   }
   async listActiveRoutes() {
     return prisma.route.findMany({ where: { active: true } });
+  }
+  async listPostOffices() {
+    return prisma.postOffice.findMany();
   }
 
   // Notification operations
@@ -227,7 +235,24 @@ export class PrismaStorage implements IStorage {
 
   // Stats operations
   async getStats() {
-    return prisma.stats.findFirst();
+    let stats = await prisma.stats.findFirst();
+    if (!stats) {
+      // Create default stats row if missing (using InsertStatsSchema defaults)
+      const defaultStats = {
+        activeParcels: 0,
+        activeRoutes: 0,
+        delayedParcels: 0,
+        onTimeRate: "0%",
+        roadTransitPercentage: "0%",
+        railTransitPercentage: "0%",
+        airTransitPercentage: "0%",
+        weatherImpactPercentage: "0%",
+        trafficCongestionPercentage: "0%",
+        mechanicalIssuesPercentage: "0%",
+      };
+      stats = await prisma.stats.create({ data: defaultStats });
+    }
+    return stats;
   }
   async updateStats(stats: Partial<InsertStats>) {
     const existing = await prisma.stats.findFirst();

@@ -1,4 +1,3 @@
-
 import os
 import requests
 from dotenv import load_dotenv
@@ -7,15 +6,93 @@ from datetime import timedelta
 
 load_dotenv()
 AZURE_MAPS_KEY = os.getenv("AZURE_MAPS_KEY")
+def calculate_dynamic_route(locations, traffic_data, weather_data, travel_mode="car"):
+    """
+    Calculates an optimized route from origin -> intermediate post offices -> destination.
+    Dynamically checks traffic and weather at each hop and adjusts path accordingly.
+    
+    Args:
+        locations (List[str]): Full list of post office locations from origin to destination.
+        traffic_data (dict): Real-time traffic flow data keyed by location.
+        weather_data (dict): Real-time weather data keyed by location.
 
-def build_route_url(start_lat, start_lon, end_lat, end_lon):
-    base_url = "https://atlas.microsoft.com/route/directions/json    "
+    Returns:
+        List[dict]: Optimized route steps with traffic/weather/rerouting info per leg.
+    """
+    optimized_route = []
+    
+    for i in range(len(locations) - 1):
+        start = locations[i]
+        end = locations[i + 1]
+
+        start_lat, start_lon = geocode_location(start)
+        end_lat, end_lon = geocode_location(end)
+        if None in [start_lat, start_lon, end_lat, end_lon]:
+            optimized_route.append({
+                "from": start,
+                "to": end,
+                "error": "Geocoding failed"
+            })
+            continue
+
+        # Base route data (supports car, rail/publicTransport)
+        url, params = build_route_url(start_lat, start_lon, end_lat, end_lon, travel_mode)
+        try:
+            response = requests.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            routes = data.get("routes", [])
+            if not routes:
+                raise Exception("No route found.")
+
+            summary = routes[0]["summary"]
+            leg_points = routes[0]["legs"][0]["points"]
+            route_coords = [[pt["latitude"], pt["longitude"]] for pt in leg_points]
+            total_seconds = summary.get("travelTimeInSeconds", 0) + summary.get("trafficDelayInSeconds", 0)
+
+            eta = str(timedelta(seconds=total_seconds))
+            distance_km = round(summary.get("lengthInMeters", 0) / 1000, 2)
+
+            # Fetch traffic & weather for current leg start
+            traffic_info = traffic_data[start]
+            weather_info = weather_data[start]
+            should_reroute, reason = suggest_rerouting(traffic_info, weather_info)
+
+            optimized_route.append({
+                "from": start,
+                "to": end,
+                "eta": eta,
+                "distance_km": distance_km,
+                "route": route_coords,
+                "traffic_info": traffic_info,
+                "weather_info": weather_info,
+                "reroute_suggestion": {
+                    "reroute": should_reroute,
+                    "reason": reason
+                }
+            })
+
+        except Exception as e:
+            optimized_route.append({
+                "from": start,
+                "to": end,
+                "error": f"Routing failed: {str(e)}"
+            })
+
+    return optimized_route
+
+def build_route_url(start_lat, start_lon, end_lat, end_lon, travel_mode="car",route_type = "shortest"):
+    """
+    Construct Azure Maps route URL with specified travel mode.
+    travel_mode: 'car', 'publicTransport', 'rail', etc.
+    """
+    base_url = "https://atlas.microsoft.com/route/directions/json"
     params = {
         "api-version": "1.0",
         "query": f"{start_lat},{start_lon}:{end_lat},{end_lon}",
-        "travelMode": "car",
+        "travelMode": travel_mode,
         "traffic": "true",
-        "routeType": "fastest",
+        "routeType": route_type,
         "subscription-key": AZURE_MAPS_KEY
     }
     return base_url, params
@@ -27,14 +104,14 @@ def suggest_rerouting(traffic_info, weather_info):
         return True, "Severe weather conditions detected. Consider rerouting."
     return False, "No rerouting needed."
 
-def get_optimized_route(start_location, end_location):
+def get_optimized_route(start_location, end_location,optimized_mode=""):
     start_lat, start_lon = geocode_location(start_location)
     end_lat, end_lon = geocode_location(end_location)
-
+    
     if None in [start_lat, start_lon, end_lat, end_lon]:
         return {"error": "Unable to geocode one or both locations."}
 
-    url, params = build_route_url(start_lat, start_lon, end_lat, end_lon)
+    url, params = build_route_url(start_lat, start_lon, end_lat, end_lon, route_type=optimized_mode)
 
     try:
         response = requests.get(url, params=params)

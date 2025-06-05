@@ -1,4 +1,3 @@
-
 import requests
 import os
 from dotenv import load_dotenv
@@ -8,20 +7,22 @@ load_dotenv()
 AZURE_MAPS_KEY = os.getenv("AZURE_MAPS_KEY")
 WEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
+
 def geocode_location(location_name):
-    base_url = "https://atlas.microsoft.com/search/address/json"
+    base_url = "https://nominatim.openstreetmap.org/search"
     params = {
-        "api-version": "1.0",
-        "query": location_name,
-        "subscription-key": AZURE_MAPS_KEY
+        "q": location_name,
+        "format": "json",
+        "limit": 1
     }
     try:
-        response = requests.get(base_url, params=params)
+        response = requests.get(base_url, params=params, headers={"User-Agent": "YourAppName/1.0"})
         response.raise_for_status()
         data = response.json()
-        if data["results"]:
-            position = data["results"][0]["position"]
-            return position["lat"], position["lon"]
+        if data and len(data) > 0:
+            lat = float(data[0]["lat"])
+            lon = float(data[0]["lon"])
+            return lat, lon
         else:
             raise ValueError(f"No results found for {location_name}")
     except Exception as e:
@@ -123,14 +124,33 @@ def calculate_congestion_level(segment):
     except:
         return "unknown"
 
+def deg_to_compass(deg):
+    directions = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+                  "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"]
+    ix = int((deg / 22.5) + 0.5) % 16
+    return directions[ix]
+
 def fetch_weather_data(lat, lon):
     url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lon}&appid={WEATHER_API_KEY}&units=metric"
     try:
         response = requests.get(url)
         data = response.json()
         weather = data.get('weather', [{}])[0].get('main', 'Clear')
-        risk = "high" if weather.lower() in ["thunderstorm", "rain", "snow"] else "low"
-        return {"lat": lat, "lon": lon, "weather": weather, "risk": risk}
+        temperature = data.get('main', {}).get('temp')  # °C
+        wind_speed_ms = data.get('wind', {}).get('speed')  # m/s
+        wind_speed_kmh = round(wind_speed_ms * 3.6, 1) if wind_speed_ms is not None else None
+        wind_deg = data.get('wind', {}).get('deg')
+        wind_direction = deg_to_compass(wind_deg) if wind_deg is not None else None
+        risk = "high" if weather and weather.lower() in ["thunderstorm", "rain", "snow"] else "low"
+        return {
+            "lat": lat,
+            "lon": lon,
+            "weather": weather,
+            "temperature": temperature,  # °C
+            "windSpeed": wind_speed_kmh,  # km/h
+            "windDirection": wind_direction,
+            "risk": risk
+        }
     except Exception as e:
         print("Weather API error:", e)
         return {"lat": lat, "lon": lon, "weather": "Unknown", "risk": "unknown"}
